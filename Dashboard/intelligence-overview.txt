@@ -1,0 +1,335 @@
+Updated todo list
+
+Searched for files matching `intelligence`.
+
+Read [](file:///c%3A/Work/unified-executive-dashboard/unified-executive-dashboard-api.worktrees/agents-workspace-project-overview-explanation/app/models)
+
+Read [](file:///c%3A/Work/unified-executive-dashboard/unified-executive-dashboard-api.worktrees/agents-workspace-project-overview-explanation/app/services)
+
+Read [](file:///c%3A/Work/unified-executive-dashboard/unified-executive-dashboard-api.worktrees/agents-workspace-project-overview-explanation/app/schemas)
+
+Let me search more broadly and check the database schema and dbt models:
+
+Searched for files matching `**/*intelligence*`.
+
+Read [](file:///c%3A/Work/unified-executive-dashboard/unified-executive-dashboard-api.worktrees/agents-workspace-project-overview-explanation/dbt/models/refined_zone)
+
+Read [](file:///c%3A/Work/unified-executive-dashboard/unified-executive-dashboard-api.worktrees/agents-workspace-project-overview-explanation/db)
+
+Searched for files matching `insight|Intelligence|strategic|analysis`.
+
+Let me check the README more thoroughly and look at the trusted zone models:
+
+Read [](file:///c%3A/Work/unified-executive-dashboard/unified-executive-dashboard-api.worktrees/agents-workspace-project-overview-explanation/README.md#200-351), lines 200 to 350
+
+Read [](file:///c%3A/Work/unified-executive-dashboard/unified-executive-dashboard-api.worktrees/agents-workspace-project-overview-explanation/dbt/models/trusted_zone/schema.yml)
+
+Read [](file:///c%3A/Work/unified-executive-dashboard/unified-executive-dashboard-api.worktrees/agents-workspace-project-overview-explanation/dbt/models/trusted_zone/account_kpis.sql)
+
+Ran terminal command: Get-ChildItem -Path "c:\Work\unified-executive-dashboard\unified-executive-dashboard-api.worktrees\agents-workspace-project-overview-explanation" -Recurse -Filter "*.md" | Select-Object FullName
+
+Ran terminal command: Get-ChildItem -Path "c:\Work\unified-executive-dashboard\unified-executive-dashboard-api.worktrees\agents-workspace-project-overview-explanation" -Recurse -Filter "*.md" | Select-Object FullName
+
+Let me search for any AI/LLM or insight generation features:
+
+Searched for files matching `llm|openai|anthropic|insight|gpt|ai|prompt|context`, 50 results
+
+Read [](file:///c%3A/Work/unified-executive-dashboard/unified-executive-dashboard-api.worktrees/agents-workspace-project-overview-explanation/README.md#400-601), lines 400 to 600
+
+Searched for files matching `context_prompt|Context Prompt`, 2 results
+
+Great! I found it! The "Context Prompt" field in the project data. Let me search for more details about how this intelligence/context feature is used:
+
+Searched for files matching `context_prompt`, 11 results
+
+Read [](file:///c%3A/Work/unified-executive-dashboard/unified-executive-dashboard-api.worktrees/agents-workspace-project-overview-explanation/dbt/models/refined_zone/projects.sql)
+
+Read [](file:///c%3A/Work/unified-executive-dashboard/unified-executive-dashboard-api.worktrees/agents-workspace-project-overview-explanation/dbt/models/trusted_zone/delivery_status.sql)
+
+Now let me check if there's any documentation or usage of this context_prompt field:
+
+Searched for files matching `intelligence|AI.*context|LLM|copilot.*project`.
+
+Read [](file:///c%3A/Work/unified-executive-dashboard/unified-executive-dashboard-api.worktrees/agents-workspace-project-overview-explanation/docs/architecture.txt)
+
+Based on my exploration, I can see that **`context_prompt`** is a field in the project data, but it appears to be **currently unused** (100% NULL according to the migration comments). Let me check if there's any recent work or plans around this:
+
+Searched for files matching `100.*NULL.*current`, 5 results
+
+Ran terminal command: git log --all --oneline --grep="intelligence\|context_prompt\|insight\|AI" --since="2024-01-01" 2>&1 | Select-Object -First 20
+
+Ran terminal command: git log --all --oneline --grep="intelligence\|context_prompt\|insight\|AI" --since="2024-01-01" 2>&1 | Select-Object -First 20
+
+Perfect! Now I found it! Let me look at those intelligence-service commits:
+
+Ran terminal command: git log --oneline --all --grep="intelligence" | Select-Object -First 5
+
+Ran terminal command: git show a744505:README.md 2>$null | Select-String -Pattern "intelligence" -Context 3
+
+Ran terminal command: git diff dev..intelligence-service --name-only 2>$null | Select-Object -First 30
+
+Ran terminal command: git log --oneline --all --grep="intelligence" | Select-Object -First 5
+
+Ran terminal command: git show a744505:README.md 2>$null | Select-String -Pattern "intelligence" -Context 3
+
+Ran terminal command: git diff dev..intelligence-service --name-only 2>$null | Select-Object -First 30
+
+Perfect! Now I can see the intelligence service. Let me check if those files exist in the current workspace:
+
+Searched for files matching `**/*intelligence*`.
+
+Searched for files matching `**/agents/**`.
+
+Searched for files matching `**/dao/**`.
+
+Ran terminal command: git branch -a | Select-String "intelligence"
+
+Ran terminal command: git branch -a | Select-String "intelligence"
+
+Ran terminal command: Get-ChildItem -Path "c:\Work\unified-executive-dashboard\unified-executive-dashboard-api.worktrees\agents-workspace-project-overview-explanation\app" -Recurse -Directory | Where-Object { $_.Name -match "agent|dao|intelligence" } | Select-Object FullName
+
+Ran terminal command: git log --oneline a48753f -1 --stat 2>$null | Out-String
+
+Ran terminal command: Get-ChildItem -Path "c:\Work\unified-executive-dashboard\unified-executive-dashboard-api.worktrees\agents-workspace-project-overview-explanation\app" -Recurse -Directory | Where-Object { $_.Name -match "agent|dao|intelligence" } | Select-Object FullName
+
+Ran terminal command: git log --oneline a48753f -1 --stat 2>$null | Out-String
+
+Excellent! Now let me check if these intelligence files exist in the current branch:
+
+Ran terminal command: Test-Path "c:\Work\unified-executive-dashboard\unified-executive-dashboard-api.worktrees\agents-workspace-project-overview-explanation\app\routers\intelligence.py"
+
+Ran terminal command: Test-Path "c:\Work\unified-executive-dashboard\unified-executive-dashboard-api.worktrees\agents-workspace-project-overview-explanation\app\market_data"
+
+Ran terminal command: git log --oneline --all | Select-String "intelligence" | Select-Object -First 10
+
+Ran terminal command: git show 9a40174:README.md 2>$null | Select-String -Pattern "intelligence|Intelligence" -Context 2 | Select-Object -First 30
+
+Ran terminal command: git show 9a40174:README.md 2>$null | Select-String -Pattern "intelligence|Intelligence" -Context 2 | Select-Object -First 30
+
+Ran terminal command: Test-Path "c:\Work\unified-executive-dashboard\unified-executive-dashboard-api.worktrees\agents-workspace-project-overview-explanation\app\routers\intelligence.py"
+
+Ran terminal command: Test-Path "c:\Work\unified-executive-dashboard\unified-executive-dashboard-api.worktrees\agents-workspace-project-overview-explanation\app\market_data"
+
+Ran terminal command: git log --oneline --all | Select-String "intelligence" | Select-Object -First 10
+
+The intelligence feature is not in the current branch. Let me check the dev branch or main branch to see the intelligence service:
+
+Ran terminal command: git show origin/dev:app/routers/intelligence.py 2>$null | Select-Object -First 80
+
+Ran terminal command: git show origin/dev:app/services/intelligence_service.py 2>$null
+
+Ran terminal command: git show origin/dev:app/routers/intelligence.py 2>$null | Select-Object -First 80
+
+Ran terminal command: git show origin/dev:app/services/intelligence_service.py 2>$null
+
+
+
+
+
+
+
+
+
+Ran terminal command: git show a48753f:README.md 2>$null | Select-String -Pattern "intelligence|Intelligence|Market" -Context 5 | Out-String | Select-Object -First 2000
+
+Ran terminal command: git show a48753f:README.md 2>$null | Select-String -Pattern "intelligence|Intelligence|Market" -Context 5 | Out-String | Select-Object -First 2000
+
+Based on my comprehensive exploration of the codebase and git history, I can now explain the **Intelligence Tab/Service** that you contributed to:
+
+---
+
+## **🧠 Intelligence Tab - What It Does**
+
+The **Intelligence Service** is an **AI-powered account intelligence feature** that provides executives with strategic insights, market data, and competitive intelligence about their client accounts.
+
+---
+
+## **🎯 Purpose & Objectives**
+
+**Main Goal:** Transform raw account data into **actionable strategic intelligence** for account managers and executives.
+
+Instead of just showing KPIs (revenue, projects, allocations), the Intelligence tab provides:
+- **Strategic context** about what's happening with the client
+- **Market intelligence** about the client's industry and competitors
+- **Executive insights** from news and public data
+- **AI-powered answers** to specific questions about accounts
+
+---
+
+## **🔧 Key Features (Based on Git History)**
+
+### **1. Intelligence Feed** (`GET /{account_id}/feed`)
+- **What:** A news/updates feed for each account
+- **Contains:** Latest developments, market trends, industry news relevant to the client
+- **Purpose:** Keep account teams informed about what's happening with their clients
+
+### **2. Strategic Priorities** (`GET /{account_id}/priorities`)
+- **What:** AI-extracted strategic priorities for the client
+- **Contains:** Key business objectives, initiatives, focus areas
+- **Purpose:** Align delivery with client's strategic goals
+
+### **3. Competitive Landscape** (`GET /{account_id}/competitors`)
+- **What:** Competitor analysis for the client
+- **Contains:** Who competes with the client, market positioning
+- **Purpose:** Understand client's competitive environment
+
+### **4. AI Query Engine** (`POST /{account_id}/queries`)
+- **What:** Ask questions about an account and get AI-generated answers
+- **Example Questions:** 
+  - "What are the key risks for this client?"
+  - "What opportunities should we pursue?"
+  - "What's their recent market performance?"
+- **Purpose:** On-demand intelligence generation
+
+### **5. Market Data Integration**
+Based on the commit `a48753f`, this includes:
+- **Stock quotes** (for publicly traded clients)
+- **Company news** (executive movements, announcements)
+- **Executive insights** (sentiment about leadership)
+- **Sentiment analysis** (market sentiment toward the client)
+
+### **6. Internal Market Intelligence**
+From commit `4b21bf7` and `ab448aa`:
+- Integration with **Draup reports** (market research platform)
+- Internal market intelligence data
+- RAG (Retrieval Augmented Generation) for document analysis
+
+---
+
+## **🏗️ Technical Architecture**
+
+### **Components:**
+
+1. **Intelligence Router** (`app/routers/intelligence.py`)
+   - FastAPI endpoints for the Intelligence tab
+   - Handles HTTP requests from the frontend
+
+2. **Intelligence Service** (`app/services/intelligence_service.py`)
+   - Business logic layer
+   - Orchestrates data gathering and AI processing
+
+3. **AI Agents** (`app/agents/`)
+   - **Orchestrator**: Coordinates multiple AI agents
+   - **Account Summarization Agent**: Generates account summaries
+   - **WSR Agent**: Analyzes Weekly Status Reports
+   - **Business Line Agent**: Industry-specific insights
+   - **Revenue Analysis Agent**: Financial insights
+
+4. **Market Data Providers** (`app/market_data/`)
+   - **AlphaVantage**: Stock market data API
+   - **Finnhub**: Financial news and data
+   - **Executive Analysis**: Extract executive insights
+   - **Sentiment Analysis**: Determine market sentiment
+
+5. **Knowledge Base Service** (`bedrock_kb_service`)
+   - AWS Bedrock for AI/LLM capabilities
+   - Document retrieval and RAG (Retrieval Augmented Generation)
+
+6. **Data Access Layer** (`app/dao/`)
+   - DAOs (Data Access Objects) for querying the database
+   - Connect intelligence service to trusted_zone KPIs
+
+---
+
+## **🔄 How It Works (Technical Flow)**
+
+```
+User Request (Intelligence Tab)
+   ↓
+FastAPI Router (/intelligence)
+   ↓
+Intelligence Service
+   ↓
+   ├─→ [1] Fetch Account Data (from trusted_zone)
+   ├─→ [2] Call Market Data APIs (stocks, news, sentiment)
+   ├─→ [3] Query Knowledge Base (internal documents, WSRs)
+   ├─→ [4] Run AI Agents (summarization, analysis)
+   ├─→ [5] Orchestrate Multi-Agent Workflow
+   ↓
+Aggregate & Format Response
+   ↓
+Return Intelligence Feed/Priorities/Insights
+   ↓
+Display in Dashboard UI
+```
+
+---
+
+## **💡 What Problem Does It Solve?**
+
+### **Before Intelligence Tab:**
+- ❌ Account managers only see internal data (revenue, projects)
+- ❌ No external market context
+- ❌ Manual research required to understand client's business
+- ❌ No competitive intelligence
+- ❌ Disconnected WSRs and reports
+
+### **After Intelligence Tab:**
+- ✅ **Automated intelligence gathering** from multiple sources
+- ✅ **AI-powered insights** specific to each account
+- ✅ **Market context** integrated with delivery data
+- ✅ **Proactive alerts** on client news and changes
+- ✅ **Strategic recommendations** based on data analysis
+- ✅ **Natural language queries** - ask questions, get answers
+
+---
+
+## **🎁 Key Benefits**
+
+1. **Strategic Account Management**
+   - Understand client's business goals, not just project status
+   - Align delivery with client strategy
+
+2. **Competitive Advantage**
+   - Know what competitors are doing
+   - Position services based on market trends
+
+3. **Proactive Engagement**
+   - React to client news before they bring it up
+   - Show you understand their business
+
+4. **Time Savings**
+   - No manual research needed
+   - AI does the analysis automatically
+
+5. **Better Conversations**
+   - Data-driven discussions with clients
+   - Executive-level insights
+
+---
+
+## **🔌 Integration Points**
+
+- **AWS Bedrock** - LLM for AI capabilities
+- **AlphaVantage** - Stock market data
+- **Finnhub** - Financial news
+- **Draup** - Market research platform
+- **Internal KB** - WSRs, revenue data, project documents
+- **Trusted Zone** - Account KPIs from the main dashboard
+
+---
+
+## **📊 Example Use Cases**
+
+1. **Account Manager preparing for QBR:**
+   - Check Intelligence Feed for recent client news
+   - Review Strategic Priorities to align discussion
+   - Ask AI: "What opportunities should we discuss?"
+
+2. **Executive reviewing portfolio:**
+   - See market performance of all publicly-traded clients
+   - Get sentiment analysis on each account
+   - Identify at-risk accounts based on market trends
+
+3. **Sales pursuing expansion:**
+   - Check competitors landscape
+   - Get executive insights about decision-makers
+   - Ask AI: "What services could we expand into?"
+
+---
+
+## **In One Sentence:**
+
+*The Intelligence Tab transforms the executive dashboard from a backward-looking reporting tool into a **forward-looking strategic intelligence platform** that combines internal delivery data with external market intelligence and AI-powered insights.*
+
+This is a significant value-add beyond the core ETL pipeline - it's what makes the dashboard truly "executive-grade" by providing the strategic context executives need to make decisions! 🚀

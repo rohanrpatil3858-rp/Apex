@@ -1,0 +1,198 @@
+I'll explore the workspace to understand this project comprehensively. Let me start by examining the key files and structure.
+
+Read [](file:///c%3A/Work/unified-executive-dashboard/unified-executive-dashboard-api.worktrees/agents-workspace-project-overview-explanation/README.md)
+
+Read [](file:///c%3A/Work/unified-executive-dashboard/unified-executive-dashboard-api.worktrees/agents-workspace-project-overview-explanation/pyproject.toml)
+
+Read [](file:///c%3A/Work/unified-executive-dashboard/unified-executive-dashboard-api.worktrees/agents-workspace-project-overview-explanation/app)
+
+Read [](file:///c%3A/Work/unified-executive-dashboard/unified-executive-dashboard-api.worktrees/agents-workspace-project-overview-explanation)
+
+Read [](file:///c%3A/Work/unified-executive-dashboard/unified-executive-dashboard-api.worktrees/agents-workspace-project-overview-explanation/README.md#1-101), lines 1 to 100
+
+Read [](file:///c%3A/Work/unified-executive-dashboard/unified-executive-dashboard-api.worktrees/agents-workspace-project-overview-explanation/app/main.py)
+
+Read [](file:///c%3A/Work/unified-executive-dashboard/unified-executive-dashboard-api.worktrees/agents-workspace-project-overview-explanation/docs)
+
+Read [](file:///c%3A/Work/unified-executive-dashboard/unified-executive-dashboard-api.worktrees/agents-workspace-project-overview-explanation/dbt)
+
+Read [](file:///c%3A/Work/unified-executive-dashboard/unified-executive-dashboard-api.worktrees/agents-workspace-project-overview-explanation/README.md#100-201), lines 100 to 200
+
+Read [](file:///c%3A/Work/unified-executive-dashboard/unified-executive-dashboard-api.worktrees/agents-workspace-project-overview-explanation/app/collectors)
+
+Read [](file:///c%3A/Work/unified-executive-dashboard/unified-executive-dashboard-api.worktrees/agents-workspace-project-overview-explanation/docs/PIPELINE_WALKTHROUGH.md)
+
+Read [](file:///c%3A/Work/unified-executive-dashboard/unified-executive-dashboard-api.worktrees/agents-workspace-project-overview-explanation/dbt/models)
+
+Let me check a few more key areas to complete the picture:
+
+Read [](file:///c%3A/Work/unified-executive-dashboard/unified-executive-dashboard-api.worktrees/agents-workspace-project-overview-explanation/run_pipeline.py#1-51), lines 1 to 50
+
+Read [](file:///c%3A/Work/unified-executive-dashboard/unified-executive-dashboard-api.worktrees/agents-workspace-project-overview-explanation/dbt/models/trusted_zone)
+
+Read [](file:///c%3A/Work/unified-executive-dashboard/unified-executive-dashboard-api.worktrees/agents-workspace-project-overview-explanation/app/routers)
+
+Searched for files matching `**/*.yaml`, 7 results
+
+Read [](file:///c%3A/Work/unified-executive-dashboard/unified-executive-dashboard-api.worktrees/agents-workspace-project-overview-explanation/configs/datasets/salesforce_accounts.yaml)
+
+Read [](file:///c%3A/Work/unified-executive-dashboard/unified-executive-dashboard-api.worktrees/agents-workspace-project-overview-explanation/configs/datasets/project_extract.yaml)
+
+Perfect! I now have a comprehensive understanding of this project. Let me explain it in the simplest way possible:
+
+---
+
+## **🎯 What is This Project?**
+
+This is an **Unified Executive Dashboard** system that collects, organizes, and serves business data from multiple sources so executives can make informed decisions.
+
+---
+
+## **📋 The Problem It Solves**
+
+**Current Challenge:**
+- Business data is scattered across different systems (Salesforce, Excel spreadsheets, various tools)
+- Executives need to manually gather data from multiple places
+- Data quality varies, with duplicates and inconsistencies
+- Historical tracking is difficult - "What did this look like last month?"
+- No single source of truth for KPIs (Key Performance Indicators)
+
+**What This System Does:**
+Automatically pulls data from all sources, cleans it, organizes it, and presents it through a unified API for dashboards.
+
+---
+
+## **🎁 Key Benefits**
+
+1. **Single Source of Truth** - All business metrics in one place
+2. **Automated Data Collection** - No manual exports needed
+3. **Time Travel** - See what data looked like at any point in history
+4. **Data Quality** - Automatic cleaning and deduplication
+5. **Privacy Ready** - Built-in data masking for sensitive information
+6. **Easy to Extend** - Add new data sources just by creating a YAML config file
+
+---
+
+## **🏗️ Technical Architecture (Simple Explanation)**
+
+Think of it as a **three-story building**:
+
+### **🏪 Ground Floor (RAW ZONE)** - "The Loading Dock"
+- **What happens:** Data comes in from 7 sources:
+  - **Salesforce** (4 datasets): Accounts, Contacts, Opportunities, Activities
+  - **Excel files** (3 datasets): Projects, Resource Allocations, Employee Skills
+- **How:** Python "collectors" automatically fetch/read this data
+- **Storage:** Everything stored in PostgreSQL with full history (bi-temporal tracking)
+- **Special feature:** Every change is tracked - you can see what the data looked like yesterday, last week, or any time
+
+### **🏢 Middle Floor (REFINED ZONE)** - "The Quality Control Room"
+- **What happens:** Raw data gets cleaned and standardized
+- **Process:** dbt (data build tool) removes duplicates, fixes data types, standardizes formats
+- **Output:** Clean, consistent tables ready for analysis (accounts, contacts, projects, employees, etc.)
+
+### **🏛️ Top Floor (TRUSTED ZONE)** - "The Executive Summary Room"
+- **What happens:** Data gets aggregated into business KPIs
+- **Examples:**
+  - Account KPIs (pipeline value, active projects, NPS scores)
+  - Delivery status (project health metrics)
+  - Team allocation (who's working on what)
+  - Pipeline summary (sales forecasts)
+  - Service line performance
+- **Output:** Ready-to-display metrics for executive dashboards
+
+### **📡 The Roof (API LAYER)** - "The Service Window"
+- **FastAPI** serves the trusted zone data to frontend dashboards
+- RESTful endpoints with automatic documentation
+- Health checks and monitoring built-in
+
+---
+
+## **🔄 Technical Flow (Step-by-Step)**
+
+```
+1. RUN PIPELINE
+   ↓
+2. COLLECTORS fetch data
+   ├─ REST Collector → Salesforce API (with OAuth)
+   └─ File Collector → Excel files from landing folders
+   ↓
+3. DATA LANDS in raw_zone tables (PostgreSQL)
+   - Each row tagged with timestamps (when loaded, when valid)
+   - Old versions kept (bi-temporal = transaction time + valid time)
+   ↓
+4. DBT TRANSFORMS run automatically
+   ├─ refined_zone: Clean & deduplicate
+   └─ trusted_zone: Aggregate KPIs
+   ↓
+5. FASTAPI serves the data
+   └─ Dashboard queries → GET /api/v1/account-kpis
+   ↓
+6. EXECUTIVES see up-to-date metrics
+```
+
+---
+
+## **🎯 Core Objectives**
+
+1. **Centralization** - One system for all executive data
+2. **Automation** - No manual work once configured
+3. **Reliability** - Full audit trail and history
+4. **Scalability** - Easy to add new data sources
+5. **Privacy** - Mask sensitive data when needed
+6. **Accessibility** - Clean API for any frontend
+
+---
+
+## **🛠️ Key Technologies**
+
+- **Python 3.12** - Main programming language
+- **FastAPI** - Modern, fast web framework for APIs
+- **PostgreSQL** - Robust database with full history
+- **dbt** - Data transformation tool (SQL-based)
+- **SQLAlchemy** - Database ORM
+- **Flyway** - Database migration management
+- **YAML configs** - No-code way to add data sources
+
+---
+
+## **💡 Smart Design Choices**
+
+1. **Template Method Pattern** - All collectors inherit from base class, override only what's unique
+2. **YAML Configuration** - Add new data sources without writing Python code
+3. **Bi-temporal Storage** - Track both "when data changed" and "when change was recorded"
+4. **Watermark Cursor** - Only fetch new/changed data (efficient)
+5. **Data Masking** - Pseudonymize sensitive fields while keeping joins working
+
+---
+
+## **🚀 Usage Example**
+
+```bash
+# Full pipeline - collect everything and transform
+python run_pipeline.py
+
+# Only collect from specific sources
+python run_pipeline.py --datasets project-extract,user-skills --skip-dbt
+
+# Only run transformations
+python run_pipeline.py --skip-collectors
+
+# Mask sensitive data
+python run_pipeline.py --mask-data
+```
+
+---
+
+## **📊 What Data Powers The Dashboard?**
+
+- **Account Health**: Revenue, NPS scores, active projects
+- **Sales Pipeline**: Open opportunities, forecasted revenue
+- **Team Utilization**: Who's allocated where, capacity planning
+- **Delivery Status**: Project health, milestones, risks
+- **Renewal Schedule**: Contract end dates, renewal pipeline
+- **Service Line Performance**: Revenue and FTE by practice area
+
+---
+
+**In One Sentence:** 
+*This system automatically collects scattered business data, cleans it, tracks its history, and serves it through an API so executives can see accurate, real-time KPIs without manual work.*

@@ -1,0 +1,184 @@
+
+# Walking Through What I Built — Intelligence Tab
+
+## First, the bigger picture (just so the context is clear)
+
+The project is called **Unified Executive Dashboard**. It's a FastAPI backend that pulls data from Salesforce and various internal Excel exports (HR, PSA, Resource Management), runs it through a three-zone ETL pipeline (raw → refined → trusted using dbt), and serves it up to a dashboard the leadership team uses every day.
+
+The dashboard has many tabs — Accounts, Pipeline, Delivery, Commercials, Portfolio, and so on — each handled by different folks. **My piece is the Intelligence tab.** This tab is the "smart" part of the dashboard. Instead of just showing numbers from the database, it actively goes out to the internet, reads the news, listens to what CEOs are saying, looks at stock movements, and tells the account executive: *"Here's what's happening in your client's world right now, and here's what it means for our engagement with them."*
+
+So the rest of the dashboard answers *"what is happening inside our business with this client?"* My endpoints answer *"what is happening in the outside world that affects this client?"*
+
+---
+
+## What problem the Intelligence tab actually solves
+
+Apexon's account executives manage large enterprise clients — banks, insurance, healthcare giants. Before a customer call or a QBR (quarterly business review), they used to spend **hours** doing manual prep:
+
+- Googling the client to find recent news
+- Checking the stock price and reading earnings calls
+- Reading CEO interviews on YouTube transcripts and trade publications
+- Stitching together a story like *"the Fed cut rates, the client's CEO mentioned cloud modernization last week, and their competitor just announced a layoff — so here's the angle we should take"*
+
+That prep was inconsistent, slow, and depended on how thorough the AE was. The Intelligence tab automates all of that. One click, and within seconds the AE gets a curated, categorized brief about their client.
+
+That's the business case. Now let me explain how I actually built it.
+
+---
+
+## The three endpoints I built end-to-end
+
+All three live in intelligence.py, with the business logic in intelligence_service.py, and the agentic brains in orchestrator.py and agent_definitions.py.
+
+### 1. `GET /intelligence/{account_id}/get-intelligence`
+
+This is the main one — the "intelligence brief for one client" endpoint.
+
+**The flow, step by step:**
+
+The router is thin on purpose. When the request comes in, the router just calls `svc.run_intelligence_analysis(account_id, refresh)` and wraps any error into a clean HTTP response. The real work is in the service.
+
+In the service, I do three things before kicking off the AI:
+
+1. **Validate the account exists** using `account_svc.require_exists()` — if someone passes a bad ID, we fail fast with a 404, not a confusing AI error 10 seconds later.
+2. **Check the cache.** I built a small `ResponseCache` utility keyed by account ID with a TTL driven by `settings.intelligence_cache_days`. Running the full multi-agent workflow costs real money in LLM tokens and web search calls, so if someone hit the endpoint two hours ago for the same account, we just return that. The `refresh=true` query param lets the user bypass the cache when they explicitly want fresh data.
+3. **Pull the client profile from the database** — name, vertical, location, ACV (annual contract value), etc. This is what gives the AI agents real context instead of guessing.
+
+Then I hand off to `run_intelligence_workflow()` in the orchestrator.
+
+**The multi-agent workflow itself** — this is where it gets interesting.
+
+I'm using **Microsoft's AutoGen framework** (`autogen_agentchat`) with **Azure OpenAI** as the model backend. I designed **9 specialized agents**, each one is an `AssistantAgent` with its own focused system prompt and its own narrow job. The mental model is like a newsroom — each reporter has a beat:
+
+- **Agent 1 — Industry Mapper:** reads the client profile and writes a *search strategy* — a list of targeted Google-style queries tailored to that client's industry, geography, and competitors. Without this, the search agents would just do generic searches and miss the point.
+- **Agents 2–7 — Six parallel search agents:** General News, Industry Trends, Regulatory & Political, Climate & Weather, Geopolitical, and Competitor Intel. Each one is given the search strategy from Agent 1 and a `web_search_tool` (Tavily-backed), and each one runs only its own beat. I split them like this because one generalist agent ends up doing a shallow job — six specialists each go deep in their lane.
+- **Agent 8 — Impact Analyzer:** takes the raw firehose of news from all six search agents and asks the hard question for every item: *"Is this actually relevant to this client? If yes, how does it impact them, and what does it mean for Apexon's engagement?"* This is the filter that separates noise from signal.
+- **Agent 9 — Categorizer:** takes the analyzed items and bucketizes them into categories like Trigger, Risk, Opportunity, Regulatory, Competitor — and outputs the final JSON.
+
+**The performance trick — parallel execution.** When I first built this sequentially, it was painfully slow because each of the six search agents was waiting for the previous one to finish. I refactored it into phases. Phase 1 (Mapper) is sequential because everything depends on it. Phase 2 (the six search agents) runs **fully in parallel** using `asyncio.gather()`. Each agent gets its own small `RoundRobinGroupChat` team with a `MaxMessageTermination` so they can't run forever. That single change brought the workflow down from "users will close the tab" territory to a usable response time — roughly a 3–5x improvement. Then phases 3 (Analyzer) and 4 (Categorizer) are sequential again because they're aggregation steps.
+
+**Parsing the final output.** LLMs are notoriously sloppy about JSON. Sometimes they wrap it in ```` ```json ```` blocks, sometimes plain ```` ``` ```` , sometimes raw with prose around it. So in the orchestrator I wrote a small tolerant extractor that tries each pattern, then falls back to "find the first `{` and the last `}`". If parsing still fails, we return a clean error envelope instead of a 500 — the dashboard never breaks.
+
+The final response is a small JSON: account name, vertical, generated_at timestamp, and an `intelligence` array of categorized items.
+
+### 2. `GET /intelligence/{account_id}/market-performance`
+
+This is the "market lens" endpoint. The Intelligence endpoint tells you about *the world around the client*. This one tells you about *the client themselves as a financial entity*.
+
+The flow follows the same pattern — thin router, service does validation + cache + DB lookup, then hands off to a workflow. But the agents are different and the design has a clever conditional path.
+
+The input is `account_id` plus an **optional** `ticker`. I made ticker optional on purpose because many of our clients are subsidiaries (e.g., "Goldman Sachs India") that don't have their own ticker. The workflow has to handle both cases gracefully.
+
+**The five agents:**
+
+1. **Ticker Resolver Agent** — only runs if no ticker is passed. It web-searches to find the company's ticker, with smart preprocessing — if the company name ends in "India", "UK", "Japan" etc., it strips that suffix and searches for the parent company. It outputs either `Status: PUBLIC` with a ticker or `Status: PRIVATE` with a reason, and I parse that into `resolved_ticker`.
+2. **Market Data Agent** — calls two tools: `stock_quote_tool` (real-time price, change %, volume from Finnhub/Alpha Vantage) and `company_news_tool` (5 latest articles). This agent only runs if we actually have a ticker.
+3. **Executive Intelligence Agent** — calls `executive_insights_tool`, which scrapes and analyzes CEO/CXO interviews and earnings call transcripts and flags **Apexon-relevant signals** — mentions of cloud modernization, AI investments, digital transformation, anything that maps to an Apexon service line.
+4. **Sentiment Agent** — calls `sentiment_analysis_tool` to get news sentiment trends and leadership tone (bullish, defensive, cautious, etc.).
+5. **Synthesizer Agent** — sits at the end. It takes everything the other agents collected and produces one structured JSON with four sections: `stock_data`, `executive_insights`, `sentiment`, and a plain-English `synthesis` paragraph that an AE can paste straight into a call brief.
+
+**Same parallel trick here.** When a ticker is available, Market Data + Executive + Sentiment all run concurrently via `asyncio.gather()`. When no ticker, only Executive + Sentiment run in parallel and the `stock_data` field comes back as `null`. The Synthesizer runs after them because it needs all three inputs.
+
+**Error handling has one quirk I want to call out.** In the router I have a separate `except HTTPException: raise` block before the generic `except Exception`. That's because the service layer already raises `HTTPException(404)` for missing accounts and `HTTPException(400)` for missing company names. If I didn't re-raise, the outer handler would wrap a 404 inside a 500 — completely wrong status code to the frontend. Small thing, easy to get wrong.
+
+### 3. `GET /intelligence/accounts-summary`
+
+This is the **portfolio-level** endpoint — instead of one client, the leadership team wants a single rolled-up intelligence view across the **top 15 strategic accounts** (sortable by ACV, filterable by tier and vertical).
+
+The naive way to build this would be: loop over 15 accounts and call `run_intelligence_workflow` 15 times. That would mean **roughly 450 LLM calls per request** (15 accounts × ~30 agent calls each). At Azure OpenAI pricing, that's expensive and slow — easily 5+ minutes.
+
+So I redesigned it. The endpoint delegates to `get_accounts_summary()` in [app/agents/accounts_summarization.py](app/agents/accounts_summarization.py), which:
+
+1. Fetches the top N accounts in one DB call via `account_svc.list_accounts()`, sorted by ACV descending, with optional tier/vertical filters.
+2. Packages all those accounts into a single list and hands it to `run_intelligence_workflow(accounts=accounts)`.
+3. The orchestrator detects the multi-account mode (`accounts` parameter is not None) and switches to a **different set of agents** — `create_multi_account_agents()` — and a different prompt builder, `build_multi_account_prompt()`, which puts all 15 client profiles into one shared context.
+4. The same 9-agent pipeline runs **once** over the whole portfolio, plus a 10th **Portfolio Summary Agent** at the end that produces executive-level themes: portfolio health, common risks, cross-account opportunities, recommendations.
+
+That brought it down from ~450 calls to roughly ~30 calls — about a **90% cost reduction** and a much faster response. Same cache pattern applies, keyed by `page|page_size|tier|vertical` so different filter combinations cache separately.
+
+---
+
+## A few cross-cutting things I want to highlight
+
+**Why I split router → service → orchestrator → agents.** It's tempting in a small feature to just stuff everything into the router. I deliberately layered it:
+
+- **Router** = HTTP concerns only (status codes, query parsing, JSON response).
+- **Service** = orchestration of DB, cache, validation. Knows nothing about AutoGen.
+- **Orchestrator** = knows about agents and how to run them, but doesn't know about HTTP or the database.
+- **Agent definitions** = pure declarative — system prompts and tool wiring.
+
+This means if Apexon ever switches from AutoGen to LangGraph, or from Azure OpenAI to Bedrock, I only touch the orchestrator and agent_definitions layers. The router and service don't change. That separation also made unit testing far easier — I could mock the orchestrator and test the service's caching and validation logic in isolation.
+
+**Why caching matters so much here.** Every call to `run_intelligence_workflow` touches the LLM ~30 times and triggers ~20 web searches. Without caching, two AEs opening the same client's tab back-to-back would double the cost. The `ResponseCache` with a configurable TTL of a few days is appropriate because news doesn't change minute-to-minute, and we still have the `refresh=true` escape hatch.
+
+**Why I suppressed AutoGen's chatty logs.** AutoGen prints a lot of "Resolved model mismatch" warnings and inter-agent chatter to the terminal by default. In production logs that's noise. I filter the warning, and I run agents through `team.run()` without the `Console` wrapper — that way our logger (`get_logger`) controls what's visible, and we just emit one structured `[WORKFLOW] Completed in X.Xs` line per request.
+
+**Security and validation.** Every endpoint runs `account_svc.require_exists()` before doing any expensive work. The `_user: dict = Depends(get_current_user)` dependency on `market-performance` enforces auth. Errors are categorized — `ValueError` becomes 400, missing account becomes 404, everything else 500 with the message safely stringified. No internal stack traces leak to the response body.
+
+---
+
+## To summarize the contribution in one line
+
+I built the entire Intelligence tab backend — three FastAPI endpoints powered by a multi-agent AutoGen workflow on Azure OpenAI, with parallel agent execution for speed, response caching for cost, and a layered architecture (router → service → orchestrator → agents) that turns hours of manual client research into a few seconds of automated, categorized intelligence for the account executive.```json ```` blocks, sometimes plain ```` ``` ```` , sometimes raw with prose around it. So in the orchestrator I wrote a small tolerant extractor that tries each pattern, then falls back to "find the first `{` and the last `}`". If parsing still fails, we return a clean error envelope instead of a 500 — the dashboard never breaks.
+
+The final response is a small JSON: account name, vertical, generated_at timestamp, and an `intelligence` array of categorized items.
+
+### 2. `GET /intelligence/{account_id}/market-performance`
+
+This is the "market lens" endpoint. The Intelligence endpoint tells you about *the world around the client*. This one tells you about *the client themselves as a financial entity*.
+
+The flow follows the same pattern — thin router, service does validation + cache + DB lookup, then hands off to a workflow. But the agents are different and the design has a clever conditional path.
+
+The input is `account_id` plus an **optional** `ticker`. I made ticker optional on purpose because many of our clients are subsidiaries (e.g., "Goldman Sachs India") that don't have their own ticker. The workflow has to handle both cases gracefully.
+
+**The five agents:**
+
+1. **Ticker Resolver Agent** — only runs if no ticker is passed. It web-searches to find the company's ticker, with smart preprocessing — if the company name ends in "India", "UK", "Japan" etc., it strips that suffix and searches for the parent company. It outputs either `Status: PUBLIC` with a ticker or `Status: PRIVATE` with a reason, and I parse that into `resolved_ticker`.
+2. **Market Data Agent** — calls two tools: `stock_quote_tool` (real-time price, change %, volume from Finnhub/Alpha Vantage) and `company_news_tool` (5 latest articles). This agent only runs if we actually have a ticker.
+3. **Executive Intelligence Agent** — calls `executive_insights_tool`, which scrapes and analyzes CEO/CXO interviews and earnings call transcripts and flags **Apexon-relevant signals** — mentions of cloud modernization, AI investments, digital transformation, anything that maps to an Apexon service line.
+4. **Sentiment Agent** — calls `sentiment_analysis_tool` to get news sentiment trends and leadership tone (bullish, defensive, cautious, etc.).
+5. **Synthesizer Agent** — sits at the end. It takes everything the other agents collected and produces one structured JSON with four sections: `stock_data`, `executive_insights`, `sentiment`, and a plain-English `synthesis` paragraph that an AE can paste straight into a call brief.
+
+**Same parallel trick here.** When a ticker is available, Market Data + Executive + Sentiment all run concurrently via `asyncio.gather()`. When no ticker, only Executive + Sentiment run in parallel and the `stock_data` field comes back as `null`. The Synthesizer runs after them because it needs all three inputs.
+
+**Error handling has one quirk I want to call out.** In the router I have a separate `except HTTPException: raise` block before the generic `except Exception`. That's because the service layer already raises `HTTPException(404)` for missing accounts and `HTTPException(400)` for missing company names. If I didn't re-raise, the outer handler would wrap a 404 inside a 500 — completely wrong status code to the frontend. Small thing, easy to get wrong.
+
+### 3. `GET /intelligence/accounts-summary`
+
+This is the **portfolio-level** endpoint — instead of one client, the leadership team wants a single rolled-up intelligence view across the **top 15 strategic accounts** (sortable by ACV, filterable by tier and vertical).
+
+The naive way to build this would be: loop over 15 accounts and call `run_intelligence_workflow` 15 times. That would mean **roughly 450 LLM calls per request** (15 accounts × ~30 agent calls each). At Azure OpenAI pricing, that's expensive and slow — easily 5+ minutes.
+
+So I redesigned it. The endpoint delegates to `get_accounts_summary()` in [app/agents/accounts_summarization.py](app/agents/accounts_summarization.py), which:
+
+1. Fetches the top N accounts in one DB call via `account_svc.list_accounts()`, sorted by ACV descending, with optional tier/vertical filters.
+2. Packages all those accounts into a single list and hands it to `run_intelligence_workflow(accounts=accounts)`.
+3. The orchestrator detects the multi-account mode (`accounts` parameter is not None) and switches to a **different set of agents** — `create_multi_account_agents()` — and a different prompt builder, `build_multi_account_prompt()`, which puts all 15 client profiles into one shared context.
+4. The same 9-agent pipeline runs **once** over the whole portfolio, plus a 10th **Portfolio Summary Agent** at the end that produces executive-level themes: portfolio health, common risks, cross-account opportunities, recommendations.
+
+That brought it down from ~450 calls to roughly ~30 calls — about a **90% cost reduction** and a much faster response. Same cache pattern applies, keyed by `page|page_size|tier|vertical` so different filter combinations cache separately.
+
+---
+
+## A few cross-cutting things I want to highlight
+
+**Why I split router → service → orchestrator → agents.** It's tempting in a small feature to just stuff everything into the router. I deliberately layered it:
+
+- **Router** = HTTP concerns only (status codes, query parsing, JSON response).
+- **Service** = orchestration of DB, cache, validation. Knows nothing about AutoGen.
+- **Orchestrator** = knows about agents and how to run them, but doesn't know about HTTP or the database.
+- **Agent definitions** = pure declarative — system prompts and tool wiring.
+
+This means if Apexon ever switches from AutoGen to LangGraph, or from Azure OpenAI to Bedrock, I only touch the orchestrator and agent_definitions layers. The router and service don't change. That separation also made unit testing far easier — I could mock the orchestrator and test the service's caching and validation logic in isolation.
+
+**Why caching matters so much here.** Every call to `run_intelligence_workflow` touches the LLM ~30 times and triggers ~20 web searches. Without caching, two AEs opening the same client's tab back-to-back would double the cost. The `ResponseCache` with a configurable TTL of a few days is appropriate because news doesn't change minute-to-minute, and we still have the `refresh=true` escape hatch.
+
+**Why I suppressed AutoGen's chatty logs.** AutoGen prints a lot of "Resolved model mismatch" warnings and inter-agent chatter to the terminal by default. In production logs that's noise. I filter the warning, and I run agents through `team.run()` without the `Console` wrapper — that way our logger (`get_logger`) controls what's visible, and we just emit one structured `[WORKFLOW] Completed in X.Xs` line per request.
+
+**Security and validation.** Every endpoint runs `account_svc.require_exists()` before doing any expensive work. The `_user: dict = Depends(get_current_user)` dependency on `market-performance` enforces auth. Errors are categorized — `ValueError` becomes 400, missing account becomes 404, everything else 500 with the message safely stringified. No internal stack traces leak to the response body.
+
+---
+
+## To summarize the contribution in one line
+
+I built the entire Intelligence tab backend — three FastAPI endpoints powered by a multi-agent AutoGen workflow on Azure OpenAI, with parallel agent execution for speed, response caching for cost, and a layered architecture (router → service → orchestrator → agents) that turns hours of manual client research into a few seconds of automated, categorized intelligence for the account executive.
