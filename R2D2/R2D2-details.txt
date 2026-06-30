@@ -1,0 +1,206 @@
+
+
+# R2D2 Agentic Service – Project Walkthrough
+
+## 1. What is this application?
+
+So basically, what I built is called **R2D2 Agentic Service**. It's a backend service built using **FastAPI** in Python, and the real brain of it is a **multi-agent AI system** built on top of **Microsoft AutoGen**.
+
+The idea is simple to explain: a sales or account manager at Apexon goes for a customer meeting. After the meeting, they record what happened — sometimes as a voice note, sometimes as a written transcript. Earlier, somebody had to manually read that transcript, write a clean summary, figure out the customer name, save it in a proper Word document, upload it to a SharePoint folder, then go to Salesforce and attach it to the right account, and finally send a confirmation email. That whole thing was repetitive, took time, and humans would forget steps or make mistakes.
+
+So my application takes that entire meeting transcript through one API call (`/invoke_r2d2_agent/`), and a chain of AI agents takes over and does everything end-to-end:
+
+1. Summarizes the transcript in a fixed format.
+2. Pulls the customer list from a SharePoint list.
+3. Corrects the customer name (because in voice transcripts names get butchered — "TFWW" should actually be "Tforce World Wide").
+4. Extracts structured metadata (date, customer name, key priorities, next steps, etc.).
+5. Checks if the user who submitted it is actually a member of the SharePoint site.
+6. Decides whether to push the document to the "Approved Transcripts" folder or the "Approved Transcripts In Review" folder.
+7. Uploads the Word doc to SharePoint and updates the UserEmail column.
+8. Uploads the same doc to the right Salesforce account (only if user is a site member).
+9. Sends a polished confirmation email — either to the user or to the support team for review.
+
+So in one sentence: **it replaces a 20-minute manual post-meeting paperwork process with a single API call.**
+
+## 2. What problem does it solve?
+
+The real-world problem is **post-meeting drudgery**. Account managers hate it. They have the meeting, but updating CRM and storing notes everywhere is the part that gets skipped or done badly. When that happens, leadership loses visibility into what's happening with customers, and follow-ups get missed.
+
+This app solves that by:
+
+- Automating the entire chain — transcript in, everything done.
+- Standardizing the format so every summary looks the same.
+- Adding **governance** — if the person submitting isn't a member of the SharePoint site, the document goes into a "Review" folder and the support team gets notified instead of it directly hitting Salesforce. So we don't pollute Salesforce with unverified data.
+
+## 3. Why a multi-agent system? Why not just one big script?
+
+This is honestly the most interesting part. When I started, I thought, "Why bother with multiple agents? Let me just write one big Python function that calls Azure OpenAI once with a giant prompt and does everything."
+
+But I realized very quickly that this approach falls apart:
+
+- One giant prompt becomes huge and hard to maintain. Change one thing and everything breaks.
+- The LLM starts hallucinating — it would try to "do everything at once" and end up skipping steps.
+- Debugging is a nightmare. If the output is wrong, you don't know which part of the prompt caused it.
+- You can't reuse logic. Tomorrow if I want only the summarization piece, I can't easily pull it out.
+
+A **multi-agent system** solves this because each agent has **one job and one job only**. The Summarizer only summarizes. The Extractor only extracts metadata. The Email agent only sends emails. Each agent has a small focused system prompt, its own tool, and clearly defined input and output. It's basically the **Single Responsibility Principle** applied to AI agents.
+
+The other big win is **traceability**. In the AutoGen Console output, I can see exactly which agent said what, which tool was called with what arguments, and where it failed. That's gold for debugging.
+
+## 4. Why AutoGen specifically?
+
+I evaluated a few options in my head — LangChain, LangGraph, CrewAI, and AutoGen. I picked **AutoGen** for a few reasons:
+
+- It's from Microsoft, and our entire stack is Microsoft — Azure OpenAI, SharePoint, Graph API, Power Automate. So integration just felt natural.
+- `AssistantAgent`, `UserProxyAgent`, and the team abstractions (`RoundRobinGroupChat`, `SelectorGroupChat`) are clean and easy to understand for someone starting out.
+- The **`FunctionTool`** wrapper is super clean — I can take any normal Python function and just wrap it like `FunctionTool(get_customer_list, description="...")` and the agent can call it. No boilerplate.
+- The **`SelectorGroupChat`** is powerful because it uses the LLM itself to decide which agent should speak next based on the workflow instructions, instead of me hardcoding a sequence. So the workflow is flexible.
+- Termination conditions like `TextMentionTermination("TERMINATE")`, `MaxMessageTermination(10)`, and `SourceMatchTermination` give me solid control over when the workflow should stop. Without these, the agents would chat forever.
+
+## 5. The Architecture in Plain English
+
+The flow looks like this:
+
+```
+FastAPI (main.py) 
+        │
+        ▼
+start_r2d2_workflow(user_email, transcript)
+        │
+        ▼
+SelectorGroupChat team of 8 agents
+        │
+        ▼
+Summarizer → GetCustomerList → GetCorrectCustomerName → Extractor 
+→ FolderPathDecisionAgent → UploadToSharepointAgent 
+→ Salesforce_uploader → Email_agent → TERMINATE
+```
+
+Behind the scenes, each agent calls one or more Python functions that hit:
+- **Microsoft Graph API** (SharePoint files, lists, group membership, sending emails) — auth done through **MSAL** with client credentials.
+- **Salesforce REST API** (OAuth client credentials → query account → upload via `ContentVersion`).
+- **Power Automate** (HTTP trigger URL, used when customer name is missing — though right now this agent is kept as a fallback).
+
+## 6. Problems I Faced While Building This (Honest Story)
+
+This is where I'll be real with you. As someone who literally just started with AutoGen and agentic AI, I hit a wall almost every day. Let me walk you through the biggest ones.
+
+### Problem 1: The "one agent doing two things" disaster
+
+Initially, I had a single agent called something like `CustomerHandlerAgent`. Its job was supposed to be:
+1. Call SharePoint and fetch the customer list.
+2. Compare the customer name in the summary with that list and correct it.
+
+Sounded simple. But what happened in practice was a mess:
+
+- Sometimes the agent would fetch the list and then **forget to do the correction step** — it would just dump the list back into the chat.
+- Other times it would skip fetching and try to correct from its own LLM knowledge (which is exactly what we DON'T want — hallucinations).
+- And in some runs, it would do both but get confused about what to send to the next agent.
+
+The reason is simple in hindsight: **the system prompt was carrying two responsibilities, and the LLM kept losing context on one of them.** It's like asking a junior employee to both go to the bank AND prepare a presentation in the same sentence — they'll do one well and mess up the other.
+
+**The fix:** I split it into two agents:
+- **`GetCustomerListAgent`** → ONLY calls the `get_customer_list` tool and returns `{summary, customer_list}`.
+- **`GetCorrectCustomerName_agent`** → ONLY takes the summary + list and does the matching logic.
+
+The moment I did this split, accuracy jumped massively. Each agent had a tiny, sharp prompt and just one thing to worry about.
+
+### Problem 2: Agents hallucinating customer names
+
+Even after splitting, I had a subtle issue. The Summarizer was being "too smart." If the transcript said "TFWW", the Summarizer was correcting it on its own to "Tforce World Wide" — even though I wanted the Summarizer to leave it untouched and let the GetCorrectCustomerName agent do the correction using the actual SharePoint list.
+
+**Why this was bad:** If the Summarizer hallucinates a name that doesn't exist in SharePoint, then the correction agent has nothing to match against and the whole pipeline ends up uploading to the wrong Salesforce account.
+
+**The fix:** I added very strict, almost shouting language in the Summarizer system prompt — `"Do NOT correct, guess, or change the customer name in any way."` with multiple examples showing what NOT to do. LLMs respond well to examples, more than to abstract rules. After adding examples like "If transcript says 'TFWW', summary must say '2. Name of customer: TFWW'", it finally stopped over-correcting.
+
+### Problem 3: Agents not calling their tools
+
+A classic beginner trap. I'd give an agent a `FunctionTool`, but in some runs, the agent would just **describe what it would do** instead of actually calling the function. Like: *"I will now call get_customer_list to fetch the list..."* — and then never call it!
+
+**The fix:** I learned that you have to be very explicit. The system prompt needs to say things like:
+- `"You MUST call the get_customer_list function"`
+- `"Do NOT respond without calling the tool"`
+- `"ONLY use the function to do X"`
+
+Capitalizing "MUST" and "ONLY" actually helps. It's almost embarrassing but it works.
+
+### Problem 4: The infinite loop / runaway chat
+
+Early on, the team would just keep chatting. Agents would respond to each other, the same agent would speak twice, and eventually I'd hit the OpenAI rate limit or get a giant bill.
+
+**The fix:** Three layers of safety in the termination condition:
+```python
+TextMentionTermination("TERMINATE") 
+| MaxMessageTermination(10) 
+| SourceMatchTermination(sources=["Email_agent"])
+```
+- `TERMINATE` keyword — clean exit.
+- Max 10 messages — hard cap.
+- If Email_agent speaks, we're done — because email is always the last step.
+
+Also setting `allow_repeated_speaker=False` was a lifesaver — it prevents the same agent from grabbing the mic twice in a row.
+
+### Problem 5: Passing data between agents
+
+This was a big "aha" moment. Agents communicate by **text messages**, not by Python variables. So if Agent A needs to send a dictionary to Agent B, it has to literally write that dictionary as text, and Agent B has to parse it.
+
+What I learned:
+- Be brutally explicit about the **exact format** the agent should output.
+- Tell the next agent **exactly which keys to expect**.
+- Example: my Extractor system prompt says: *"Return ONLY a valid Python dictionary with EXACTLY two keys: 'summary' and 'metadata'."*
+
+This is also why I had to write things like: *"You MUST preserve this dictionary as you will need to pass it to UploadToSharepointAgent."* Because by default, the next LLM might "summarize" or paraphrase the data instead of passing it through cleanly.
+
+### Problem 6: Tool function signatures vs. what the LLM passes
+
+The `format_summary` function takes 4 arguments. Early on, the agent would call it with only 2 or 3, because nothing in the chat clearly told it about all 4. I had to:
+- Update the tool description.
+- Update the agent's system prompt to explicitly list all four arguments.
+- Mention it again in the workflow instructions.
+
+Basically — **say it three times in three places.** The LLM needs reinforcement.
+
+### Problem 7: Site membership check & governance
+
+This was a business-logic problem more than an AI one. We needed to make sure that random people couldn't dump junk straight into Salesforce. So I built `is_user_member_of_site` which uses Graph API to check if the user belongs to the Azure AD group that backs the SharePoint site. Based on True/False, the document goes to "Approved Transcripts" (auto-published) or "Approved Transcripts In Review" (waits for support team review).
+
+The tricky part was teaching the **Salesforce_uploader agent and the Email_agent to branch their behavior based on the folder path string**. So both agents check: *"Does folder_path contain 'Review'?"* — if yes, skip Salesforce and notify support; if no, push to Salesforce and confirm to user. That conditional logic lives inside the system prompt, which was new for me — I was used to writing `if/else` in code, not in English.
+
+### Problem 8: SSL and corporate networks
+
+Small but painful one. We're behind a corporate proxy. Every `requests.get` and MSAL call had to set `verify=False`. I also had to add `urllib3.disable_warnings(...)` because the console was being flooded with warnings. In production, this should obviously be a proper certificate, but for development this unblocked me.
+
+### Problem 9: Salesforce account lookup
+
+When the customer name correction failed (or the customer was genuinely new and not in Salesforce), the Salesforce upload would crash. I added logic so that if the account isn't found, the agent returns `"Account name is not found - TERMINATE"` and the workflow stops cleanly instead of erroring out.
+
+### Problem 10: Why is the Word doc empty / formatted wrong?
+
+When using `python-docx`, I had to be careful about the order of `add_heading` vs `add_paragraph` and about writing the doc to a `BytesIO` stream before uploading to Graph API. Took a few iterations to get the formatting right.
+
+## 7. Tech Stack Summary
+
+- **FastAPI + Uvicorn** — REST API layer.
+- **AutoGen (autogen-agentchat 0.7.4)** — multi-agent framework.
+- **Azure OpenAI** — the LLM brain (via `AzureOpenAIChatCompletionClient`).
+- **MSAL** — Azure AD auth for Graph API.
+- **Microsoft Graph API** — SharePoint files, lists, group membership, sending email.
+- **Salesforce REST API** — account lookup and ContentVersion upload.
+- **python-docx** — Word document generation.
+- **Power Automate** — fallback flow when customer name is missing.
+- **Pydantic** — request validation.
+
+## 8. Key Lessons I'd Pass On To Another Beginner
+
+1. **One agent = one job.** The moment you find yourself writing "and then it should also..." in a system prompt, split into two agents.
+2. **The LLM is not your variable store.** Pass data explicitly and tell agents to preserve it.
+3. **Tools won't get called unless you SHOUT in the prompt.** Use "MUST", "ONLY", "DO NOT".
+4. **Termination conditions are not optional.** Always have at least a `MaxMessageTermination`.
+5. **Give examples in prompts, not just rules.** LLMs are pattern matchers.
+6. **Branching logic can live in prompts**, but keep the conditions simple (string contains check, true/false flag).
+7. **Always log what each agent says** during development. The AutoGen `Console` is your best friend.
+8. **Test with bad transcripts** — missing names, typos, weird formats. That's where the bugs hide.
+
+---
+
+That's the full story. If you want, I can also turn this into a polished one-page summary, a slide deck outline, or a shorter "elevator pitch" version for the first 2 minutes of the interview.
