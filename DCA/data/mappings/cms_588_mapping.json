@@ -1,0 +1,244 @@
+{
+  "form_id": "CMS-588",
+  "form_name": "Electronic Funds Transfer (EFT) Authorization Agreement",
+  "version": "1.0",
+  "total_fields": 30,
+  
+  "api_mappings": [
+    {
+      "field_id": "1",
+      "field_name": "Reason for Submission",
+      "api_endpoint": "http://127.0.0.1:8000/api/compliance/audit",
+      "json_path": "$.audits[2].audit_type",
+      "required": true,
+      "description": "New EFT Enrollment / Change / Cancel",
+      "default_value": "New EFT Enrollment"
+    },
+    {
+      "field_id": "2",
+      "field_name": "Provider/Supplier/IPP Biller Legal Business Name",
+      "api_endpoint": "http://127.0.0.1:8000/api/ehr/facility",
+      "json_path": "$.facilities[2].name",
+      "required": true,
+      "description": "Legal business name as reported to IRS"
+    },
+    {
+      "field_id": "3",
+      "field_name": "Account Holder's Street Address",
+      "api_endpoint": "http://127.0.0.1:8000/api/ehr/facility",
+      "json_path": "$.facilities[2].address.street",
+      "required": true,
+      "description": "Provider street address"
+    },
+    {
+      "field_id": "4",
+      "field_name": "Account Holder's City",
+      "api_endpoint": "http://127.0.0.1:8000/api/ehr/facility",  
+      "json_path": "$.facilities[2].address.city",
+      "required": true,
+      "description": "Provider city"
+    },
+    {
+      "field_id": "5",
+      "field_name": "Account Holder's State",
+      "api_endpoint": "http://127.0.0.1:8000/api/ehr/facility",  
+      "json_path": "$.facilities[2].address.state",
+      "required": true,
+      "description": "Provider state"
+    },
+    {
+      "field_id": "6",
+      "field_name": "Account Holder's Zip Code",
+      "api_endpoint": "http://127.0.0.1:8000/api/ehr/facility",  
+      "json_path": "$.facilities[2].address.zip",
+      "required": true,
+      "description": "Provider zip code"
+    },
+    {
+      "field_id": "7",
+      "field_name": "Tax Identification Number (TIN)",
+      "api_endpoint":"http://127.0.0.1:8000/api/registry/state",
+      "json_path": "$.licenses[2].certification_number",
+      "required": true,
+      "description": "EIN or SSN",
+      "default_value": "12-3456789"
+    },
+    {
+      "field_id": "8",
+      "field_name": "Medicare Identification Number (if issued)",
+      "api_endpoint":"http://127.0.0.1:8000/api/registry/state",   
+      "json_path": "$.licenses[2].certification_number",
+      "required": false,
+      "description": "Medicare ID"
+    },
+    {
+      "field_id": "9",
+      "field_name": "National Provider Identifier (NPI)",
+      "api_endpoint": "http://127.0.0.1:8000/api/ehr/facility",  
+      "json_path": "$.facilities[2].npi",
+      "required": true,
+      "description": "10-digit NPI"
+    },
+    {
+      "field_id": "14",
+      "field_name": "Contact Person's Name",
+      "api_endpoint":"http://127.0.0.1:8000/api/hr/auditor",
+      "json_path": "$.contacts[0].name",
+      "required": true,
+      "description": "EFT contact person"
+    },
+    {
+      "field_id": "15",
+      "field_name": "Contact Person's Title",
+      "api_endpoint":"http://127.0.0.1:8000/api/hr/auditor",
+      "json_path": "$.contacts[0].title",
+      "required": true,
+      "description": "Contact title"
+    },
+    {
+      "field_id": "16",
+      "field_name": "Contact Person's Telephone Number",
+      "api_endpoint":"http://127.0.0.1:8000/api/hr/auditor",
+      "json_path": "$.contacts[0].phone",
+      "required": true,
+      "description": "Contact phone"
+    },
+    {
+      "field_id": "17",
+      "field_name": "Contact Person's E-mail Address",
+      "api_endpoint":"http://127.0.0.1:8000/api/hr/auditor",
+      "json_path": "$.contacts[0].email",
+      "required": true,
+      "description": "Contact email"
+    }
+  ],
+  
+  "database_mappings": [
+    {
+      "field_id": "10",
+      "field_name": "Financial Institution's Name",
+      "source_file": "internal_finance.sqlite",
+      "table": "bank_accounts",
+      "sql_query": "SELECT bank_name FROM bank_accounts WHERE facility_id = 'FAC-003'",
+      "required": true,
+      "description": "Bank name"
+    },
+    {
+      "field_id": "11",
+      "field_name": "Financial Institution's Street Address",
+      "source_file": "internal_finance.sqlite",
+      "table": "bank_accounts",
+      "sql_query": "SELECT bank_street FROM bank_accounts WHERE facility_id = 'FAC-003'",
+      "required": true,
+      "description": "Bank street address"
+    },
+    {
+      "field_id": "18",
+      "field_name": "Financial Institution's City/Town",
+      "source_file": "internal_finance.sqlite",
+      "table": "bank_accounts",
+      "sql_query": "SELECT bank_city FROM bank_accounts WHERE facility_id = 'FAC-003'",
+      "required": true,
+      "description": "Bank city"
+    },
+    {
+      "field_id": "19",
+      "field_name": "Financial Institution's State/Province",
+      "source_file": "internal_finance.sqlite",
+      "table": "bank_accounts",
+      "sql_query": "SELECT bank_state FROM bank_accounts WHERE facility_id = 'FAC-003'",
+      "required": true,
+      "description": "Bank state"
+    },
+    {
+      "field_id": "20",
+      "field_name": "Financial Institution's Zip Postal Code",
+      "source_file": "internal_finance.sqlite",
+      "table": "bank_accounts",
+      "sql_query": "SELECT bank_zip FROM bank_accounts WHERE facility_id = 'FAC-003'",
+      "required": true,
+      "description": "Bank zip"
+    },
+    {
+      "field_id": "21",
+      "field_name": "Financial Institution Routing Number (must be 9 digits)",
+      "source_file": "internal_finance.sqlite",
+      "table": "bank_accounts",
+      "sql_query": "SELECT routing_number FROM bank_accounts WHERE facility_id = 'FAC-003'",
+      "required": true,
+      "description": "9-digit routing number"
+    },
+    {
+      "field_id": "22",
+      "field_name": "Provider's/Supplier's Account Number with Financial Institution",
+      "source_file": "internal_finance.sqlite",
+      "table": "bank_accounts",
+      "sql_query": "SELECT account_number FROM bank_accounts WHERE facility_id = 'FAC-003'",
+      "required": true,
+      "description": "Account number including leading zeros"
+    },
+    {
+      "field_id": "23",
+      "field_name": "Type of Account",
+      "source_file": "internal_finance.sqlite",
+      "table": "bank_accounts",
+      "sql_query": "SELECT account_type FROM bank_accounts WHERE facility_id = 'FAC-003'",
+      "required": true,
+      "description": "Checking or Savings"
+    },
+    {
+      "field_id": "24",
+      "field_name": "Authorized/Delegated Official Name",
+      "source_file": "internal_hr.sqlite",
+      "table": "employees",
+      "sql_query": "SELECT full_name FROM employees WHERE employee_id = 3 AND can_sign_588 = 1",
+      "required": true,
+      "description": "Authorized official name"
+    },
+    {
+      "field_id": "25",
+      "field_name": "Authorized/Delegated Official Telephone Number",
+      "source_file": "internal_hr.sqlite",
+      "table": "employees",
+      "sql_query": "SELECT phone FROM employees WHERE employee_id = 3 AND can_sign_588 = 1",
+      "required": true,
+      "description": "Authorized official phone"
+    },
+    {
+      "field_id": "26",
+      "field_name": "Authorized/Delegated Official Title",
+      "source_file": "internal_hr.sqlite",
+      "table": "employees",
+      "sql_query": "SELECT title FROM employees WHERE employee_id = 3 AND can_sign_588 = 1",
+      "required": true,
+      "description": "Authorized official title"
+    },
+    {
+      "field_id": "27",
+      "field_name": "Authorized/Delegated Official E-mail Address",
+      "source_file": "internal_hr.sqlite",
+      "table": "employees",
+      "sql_query": "SELECT email FROM employees WHERE employee_id = 3 AND can_sign_588 = 1",
+      "required": true,
+      "description": "Authorized official email"
+    },
+    {
+      "field_id": "28",
+      "field_name": "Authorized/Delegated Official Signature",
+      "source_file": "internal_hr.sqlite",
+      "table": "employees",
+      "sql_query": "SELECT full_name FROM employees WHERE employee_id = 3 AND can_sign_588 = 1",
+      "required": true,
+      "description": "Authorized official signature"
+    },
+    {
+      "field_id": "29",
+      "field_name": "Date",
+      "source_file": "internal_finance.sqlite",
+      "table": "bank_accounts",
+      "sql_query": "SELECT date('now') AS signature_date",
+      "required": true,
+      "description": "Signature date"
+    }
+  ]
+}

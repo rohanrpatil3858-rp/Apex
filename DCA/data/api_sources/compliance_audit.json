@@ -1,0 +1,39 @@
+{
+  "audits": [
+    {
+      "audit_id": "AUDIT-001",
+      "facility_id": "FAC-001",
+      "audit_date": "2025-11-15",
+      "audit_type": "Medicare Compliance",
+      "status": "Completed",
+      "compliance_status": "Compliant",
+      "deficiencies_count": 0,
+      "home_visits_private": 5,
+      "home_visits_residential": 2,
+      "records_reviewed": 20,
+      "patients_in_residential": 8
+    },
+    {
+      "audit_id": "AUDIT-002",
+      "facility_id": "FAC-002",
+      "audit_date": "2025-10-10",
+      "audit_type": "Hospice Survey",
+      "status": "Completed",
+      "compliance_status": "Compliant",
+      "deficiencies_count": 1,
+      "home_visits_private": 10,
+      "home_visits_residential": 12,
+      "records_reviewed": 25,
+      "patients_in_residential": 18
+    },
+    {
+      "audit_id": "AUDIT-003",
+      "facility_id": "FAC-003",
+      "audit_date": "2025-09-05",
+      "audit_type": "Billing & EFT Review",
+      "status": "Completed",
+      "compliance_status": "Compliant",
+      "deficiencies_count": 0
+    }
+  ]
+}

@@ -1,0 +1,184 @@
+Read [](file:///c%3A/Users/rohan.patil1/OneDrive%20-%20Apexon/Desktop/Important-project-data/Dynamic-compliance-automation-latest/is_corp-service-e4c686476d7c)
+
+Read [](file:///c%3A/Users/rohan.patil1/OneDrive%20-%20Apexon/Desktop/Important-project-data/Dynamic-compliance-automation-latest/is_corp-service-e4c686476d7c/api_server.py)
+
+Read [](file:///c%3A/Users/rohan.patil1/OneDrive%20-%20Apexon/Desktop/Important-project-data/Dynamic-compliance-automation-latest/is_corp-service-e4c686476d7c/roundrobin_workflowv4.py)
+
+Read [](file:///c%3A/Users/rohan.patil1/OneDrive%20-%20Apexon/Desktop/Important-project-data/Dynamic-compliance-automation-latest/is_corp-service-e4c686476d7c/tools.py)
+
+Read [](file:///c%3A/Users/rohan.patil1/OneDrive%20-%20Apexon/Desktop/Important-project-data/Dynamic-compliance-automation-latest/is_corp-service-e4c686476d7c/mapping_generator.py)
+
+Read [](file:///c%3A/Users/rohan.patil1/OneDrive%20-%20Apexon/Desktop/Important-project-data/Dynamic-compliance-automation-latest/is_corp-service-e4c686476d7c/read_database.py)
+
+Read [](file:///c%3A/Users/rohan.patil1/OneDrive%20-%20Apexon/Desktop/Important-project-data/Dynamic-compliance-automation-latest/is_corp-service-e4c686476d7c/requirements.txt)
+
+Read [](file:///c%3A/Users/rohan.patil1/OneDrive%20-%20Apexon/Desktop/Important-project-data/Dynamic-compliance-automation-latest/is_corp-service-e4c686476d7c/data/mappings/cms_3427_mapping.json)
+
+Read [](file:///c%3A/Users/rohan.patil1/OneDrive%20-%20Apexon/Desktop/Important-project-data/Dynamic-compliance-automation-latest/is_corp-service-e4c686476d7c/data/api_sources/ehr_facility.json)
+
+Alright. Before I start, the files I actually read through were api_server.py, roundrobin_workflowv4.py, tools.py, mapping_generator.py, read_database.py, requirements.txt, one of the mapping files cms_3427_mapping.json, and a sample data source ehr_facility.json. That gave me a full picture of both the form-filling workflow and the mapping-generation workflow. Now let me walk through it the way I'd explain it in an interview.
+
+---
+
+## 1. What is this application?
+
+So basically, I built a thing called the **Dynamic Compliance Automation** service. The whole point of it is to take a blank CMS healthcare compliance form, a PDF, and auto-fill it with the right data pulled from different sources, then hand back a finished PDF that a human just has to review and sign.
+
+The tech stack at a high level is Python with FastAPI for the web layer, Microsoft's AutoGen `autogen-agentchat` framework for the multi-agent orchestration, Azure OpenAI as the LLM provider, PyMuPDF (`fitz`) and PyPDF2 for the PDF work, SQLite for the internal databases, plain JSON files acting as mock external APIs, and Server-Sent Events on top of `sse-starlette` so the front end can watch the agents talk to each other in real time.
+
+A single end-to-end run looks like this. The user opens the React UI, picks a form type like `cms_3427`, types in a facility name and facility ID, and hits process. The frontend hits `/api/process-form`. The server generates a session ID, kicks off the workflow as a FastAPI background task, and immediately returns the session ID. The frontend then opens an SSE connection to `/stream-logs/{session_id}` and starts streaming what each agent is doing live. In the background, seven agents take turns. The PDF Schema agent reads the blank PDF, then the Mapping agent loads the JSON mapping for that form, then the API agent calls the mocked REST endpoints for facility, compliance audit, state registry and HR data, then the Database agent writes SQL queries against the SQLite files for stuff that lives internally like auditor names and signatures, then the Data Populator agent merges everything into one JSON keyed by `field_id`, then the Validation agent checks the data is sane, then the PDF Filler agent uses PyMuPDF to actually write the values into the form widgets and saves the result to filled_form.pdf. The frontend gets a "complete" event, calls `/api/workflow-result/{session_id}` to get the JSON, and downloads the filled PDF from `/download/filled_form.pdf`. That's one run.
+
+There's also a second, separate flow called the **Mapping Generator**, which is the one-time setup flow. When a new CMS form comes in that nobody's mapped before, the user uploads it to `/api/mapping/generate` with a list of which APIs and databases are available. Four agents inspect the PDF, hit every endpoint, look at every database schema, and produce a `mapping.json` that the main filling workflow will use later. That mapping is basically the "recipe" that connects each PDF field to a data source.
+
+## 2. What real-world problem does this solve?
+
+Okay, so this is the part where the business angle matters. In healthcare, CMS forms like CMS-3427, CMS-3427B, CMS-588 and CMS-643 are filed constantly. Hospitals, hospice groups, provider groups, all of them have to file compliance reports. The painful thing is that the same data lives in five different places. The facility's name and NPI are in the EHR system. The CMS certification number is in a state registry database. Audit dates and compliance status are in a separate compliance system. Who's allowed to sign a CMS-3427 lives in the internal HR system. So somebody, usually a compliance officer, has to log into four or five different portals, copy-paste values, retype the address, hope they didn't transpose a digit on the NPI, and submit. And they do this for every facility in their network, every reporting period.
+
+The pain is real. It's slow, it's boring, it's error-prone, and a typo on a CMS form has actual regulatory consequences. The people who suffer are the compliance officers, the facility administrators, and ultimately patients, because the staff who could be doing real work are stuck doing copy-paste.
+
+What my app removes is that whole loop. You pick the form, you pick the facility, you hit one button. Everything that can be auto-populated is auto-populated, pulled from authoritative sources, and the human only has to glance over it and sign. If a new CMS form comes out next quarter, you don't have to ship new code, you just run the mapping generator on the new PDF and the same fill workflow handles it. That "no code change for a new form" piece is honestly what makes this useful to a business and not just a one-off script.
+
+From a business point of view, it's a labor-hour reduction story and a compliance-accuracy story at the same time. You're cutting hours per filing down to seconds, and you're removing transcription errors. Both of those translate directly into dollars and reduced regulatory risk.
+
+## 3. Architecture in plain English
+
+Let me draw the flow, because words alone get fuzzy here.
+
+```mermaid
+flowchart TD
+    UI[React Frontend] -->|POST /api/process-form| API[FastAPI api_server.py]
+    API -->|background task| WF[roundrobin_workflowv4.py]
+    UI <-->|SSE /stream-logs/:id| API
+
+    subgraph Team[RoundRobinGroupChat - 7 agents in fixed order]
+        A1[PDFSchemaAgent] --> A2[MappingAgent]
+        A2 --> A3[APIAgent]
+        A3 --> A4[DatabaseAgent]
+        A4 --> A5[DataPopulatorAgent]
+        A5 --> A6[ValidationAgent]
+        A6 --> A7[PDFFillerAgent]
+    end
+
+    WF --> Team
+    A1 -->|read_pdf_content| PDF[(Blank PDF)]
+    A2 -->|load_field_mapping| MAP[(mapping.json)]
+    A3 -->|fetch_multiple_from_json| EXT[Mock REST APIs<br/>ehr / hr / audit / registry]
+    A4 -->|get_database_schema + fetch_multiple_from_sqlite| DB[(SQLite HR / Finance)]
+    A7 -->|fill_pdf_form PyMuPDF| OUT[(outputs/filled_form.pdf)]
+
+    UI -->|GET /api/workflow-result/:id| API
+    UI -->|GET /download/filled_form.pdf| API
+```
+
+The entry point is api_server.py. That's the FastAPI app. It does three jobs. First, it serves the mock data APIs (`/api/ehr/facility`, `/api/hr/auditor`, `/api/compliance/audit`, `/api/registry/state`) which read from JSON files in api_sources. Second, it runs the form-filling workflow as a background task and streams the agent logs back over SSE. Third, it runs the mapping-generator workflow when somebody uploads a brand new form.
+
+The brain is roundrobin_workflowv4.py. The name `v4` is honest, that's literally how many times I rebuilt it. It defines the seven agents and bolts them into a `RoundRobinGroupChat` from AutoGen. Each agent has a system prompt that's very pushy, lots of "you MUST call the tool" because the models love to hallucinate output and skip the tool call.
+
+tools.py is where the actual side-effects live. `read_pdf_content` uses PyPDF2 to pull text and to check the PDF actually has an `/AcroForm` with fields, otherwise it returns an error and the PDF Schema agent emits `STATUS: INVALID_PDF TERMINATE` and the whole workflow stops cleanly. `load_field_mapping` just reads the JSON. `fetch_multiple_from_json` is an `httpx` call to one of the mock APIs with the `X-API-Key` header. `get_database_schema` and `fetch_multiple_from_sqlite` are plain `sqlite3` reads. `fill_pdf_form` is the real workhorse, it opens the PDF with PyMuPDF, walks every widget on every page, matches field names case-insensitively, sets the value (with special handling for checkboxes), and saves to filled_form.pdf.
+
+mapping_generator.py is a parallel universe. It has its own four-agent team: `pdf_schema_agent`, `api_explorer_agent`, `db_explorer_agent`, and `mapping_builder_agent`. The explorer agents actually call the APIs and dump the database schemas so the builder agent can write a mapping JSON describing where each PDF field's value should come from. Once that mapping file exists, the fill workflow can use it forever.
+
+External services involved: Azure OpenAI (the LLM for all the agents) and that's it. Everything else is local. The "external" APIs are FastAPI endpoints on the same server reading JSON files, which is a deliberate mock so I could develop without needing real EHR access.
+
+## 4. Why this design and not something simpler?
+
+The naive thing I tried first, honestly, was just one big Python script. Read the PDF with PyPDF2, requests.get the data, write back the values, done. No agents, no LLM, no framework. That worked for exactly one form. The moment I tried a second CMS form with different field names, the whole thing fell apart because I'd hardcoded which API field maps to which PDF field. Every new form would be a code change.
+
+The second naive thing was: one big LLM prompt. Give GPT the PDF text, the mapping, the API responses, all of it, and ask "fill this in." That kind of worked but was slow, expensive, and the model would hallucinate values for facilities that didn't exist. If you asked for `FAC-002` and the model was tired, it'd just invent a phone number.
+
+That's when I broke it into agents with single responsibilities. PDF parsing is its own job. Loading a mapping is its own job. Hitting APIs is its own job. Hitting databases is its own job. Merging is its own job. Validating is its own job. Writing the PDF is its own job. Each agent has a tiny scope, so the prompt can be very specific and the model can't drift into other roles. That's why there's an explicit "API agent, do NOT touch database mappings" instruction, because once you have boundaries you have to police them.
+
+I went with `RoundRobinGroupChat` instead of `SelectorGroupChat`. Selector uses an LLM to decide who speaks next, which is flexible but slow, expensive, and non-deterministic. For this workflow the order is fixed: you can't fetch API data before loading the mapping, you can't validate before populating, you can't fill before validating. So round-robin made sense and saved me roughly one LLM call per turn.
+
+For async vs sync: the workflow is long-running, sometimes 30 seconds plus, and the front end needs progress feedback. If I made it sync, the HTTP request would block for half a minute and the user would stare at a spinner with no idea what's happening. So the POST endpoint returns immediately with a `session_id` and queues a background task, and SSE streams the agent chatter live. That UX win is worth the complexity.
+
+For the database choice: SQLite, not Postgres. This is internal employee data for a demo, the data is small, read-only, and per-facility. SQLite means zero infra to spin up. If I were going to production with real HR systems, I'd swap the tool to talk to whatever real DB the customer has, but the agent interface wouldn't change.
+
+For the mapping format being JSON files on disk instead of a database: each form is a stable, slow-changing spec. They're basically configuration, not data. A JSON file in mappings is the simplest possible thing that works, is reviewable in a PR, and is editable by hand if needed.
+
+## 5. Why AutoGen specifically?
+
+For the agent framework, my real shortlist was AutoGen, LangGraph, and CrewAI. I picked AutoGen for a few honest reasons.
+
+First, the conversation abstraction is dead simple. An agent is just an `AssistantAgent` with a system message, a model client, and a list of Python functions as tools. No graph DSL to learn, no class hierarchy to inherit from. I'm Python-first, and AutoGen feels like Python.
+
+Second, `RoundRobinGroupChat` and `SelectorGroupChat` gave me both patterns for free. I could literally swap one for the other to compare. LangGraph would have made me draw the state machine myself, which is more powerful but more code for what is genuinely a linear pipeline.
+
+Third, the Azure OpenAI integration through `autogen-ext` is one import and one client. No glue code.
+
+Fourth, the streaming API. `team.run_stream(task=...)` yields messages as they happen, which is exactly what I needed to push to SSE. I didn't have to invent a callback layer.
+
+The honest con is that AutoGen at version 0.7.x is still moving. The `autogen-agentchat` and `autogen-ext` packages are pinned in requirements.txt for a reason, the API has shifted between versions and a minor bump can break things. I accepted that trade because the developer ergonomics were better than the alternatives for this shape of problem.
+
+## 6. Problems I faced while building this, the honest story
+
+This is the section I want to actually spend time on, because most of what I learned was from things going wrong.
+
+**Problem 1: One agent doing two jobs and doing both badly.**
+First version, I had one big "DataAgent" that fetched from APIs and queried databases. Sounded clean. In practice, the prompt got so long and conflicted that the agent would sometimes call the SQL tool with an HTTP URL, or call the API tool with a SQL query. It was a coin flip whether it'd even use the right tool. The aha moment was realizing tool ambiguity is prompt poison. Each agent should have the smallest possible tool kit. So I split it into `APIAgent` with only `fetch_multiple_from_json` and `DatabaseAgent` with only `get_database_schema` and `fetch_multiple_from_sqlite`. The mapping JSON itself was split into `api_mappings` and `database_mappings` and each agent was told to ignore the other array. Reliability jumped immediately.
+
+**Problem 2: The model would skip the tool and just hallucinate data.**
+I'd ask the API agent to fetch from a URL and it would happily output `field_1: Metro Medical Center` without calling anything. Looked right. Was completely made up, because Metro Medical Center happens to be in the example in the prompt. I caught this when I changed `FAC-001` to `FAC-002` and got back the same address. The fix was twofold. First, I added very loud, repeated "**CRITICAL: You MUST use the tool. Do NOT output data without calling the tool first**" lines in the system message. Second, I added an explicit example in the prompt showing the tool call. Third, I made `reflect_on_tool_use=True` so the agent has to look at what came back before producing output. It still slips sometimes, which is honestly why the Validation agent exists.
+
+**Problem 3: Agents speaking in the wrong order.**
+Originally I used `SelectorGroupChat`. The selector LLM would sometimes pick the PDF Filler agent before the Data Populator had even run, and the filler would dutifully write nothing into the PDF. The fix was switching to `RoundRobinGroupChat` and accepting that the workflow is linear. The aha was: not every problem needs an LLM. Picking who speaks next is a problem a `for` loop solves better than a model.
+
+**Problem 4: The workflow ran forever.**
+Without a termination condition the team would just keep going, with the last agent saying "DONE" and then the first agent waking up and starting again. I learned about `MaxMessageTermination` and `TextMentionTermination` and combined them with `terminate_condition | max_messages_condition`. The TERMINATE one is for the invalid-PDF early-exit, and the MaxMessageTermination is a hard cap at 8 messages (one initial + 7 agents) so even if something misbehaves the run ends.
+
+**Problem 5: Bad PDFs would crash everything.**
+Somebody would upload a scanned image PDF with no form fields. The original `read_pdf_content` would happily extract text and the downstream agents would all try to do their jobs on a document with no fields, and the PDF Filler would silently produce an empty output. The aha was that I needed to fail fast right in the tool. I added an `/AcroForm` check in `read_pdf_content`, return `success: False` with a clear error message, taught the PDF Schema agent to emit `STATUS: INVALID_PDF\nREASON: ...\nTERMINATE`, and added the regex check in the workflow runner to pull the reason out and return a structured `{"status": "error", "code": "INVALID_PDF", "message": reason}` response. The frontend now gets a clean error instead of a corrupted PDF.
+
+**Problem 6: The frontend had no idea what was happening.**
+The first version did the work synchronously and the user stared at a blank screen for 30 seconds. I tried polling. Polling was ugly and laggy. Then I found `sse-starlette`. I built the `session_logs` dictionary keyed by `session_id`, hooked it up to the workflow via a `set_agent_log_handler` injection so the workflow module doesn't import the API module (no circular import), and streamed events as they were appended. The slightly tricky bit was the "complete" event. At first I was waiting for a "DONE" string in logs, which fired too early because every agent says DONE. The fix was a separate `workflow_results` dict that only gets populated when the background task finishes, and the SSE loop checks that to decide when to send the complete event.
+
+**Problem 7: Environment variables loaded at the wrong time.**
+The workflow file creates the Azure OpenAI client at module import. If I imported the workflow before calling `load_dotenv()` in the API server, the client would init with `None` for the endpoint and blow up on the first request. The error message was useless, something like "401 invalid authentication." Took me an embarrassing amount of time to figure out. The fix is the comment you see at the top of api_server.py: `# Load environment variables BEFORE importing workflow module`. Now `load_dotenv()` runs before the `import roundrobin_workflowv4` line. Order of imports is a real thing.
+
+**Problem 8: Field name mismatches between data and PDF widgets.**
+The PDF would have a widget called `"Facility Name "` with a trailing space, or `"facility name"` lowercase, and my data was keyed `"Facility Name"`. The fill would silently match nothing. I added case-insensitive matching in `fill_pdf_form` as a fallback. Longer term, I switched to using `field_id` like `field_1`, `field_2` as the canonical key all the way through the agents, and only resolved to the actual PDF widget name at the very end. That kept naming drift out of the agent layer entirely.
+
+**Problem 9: Checkbox handling.**
+PyMuPDF checkbox widgets don't take the string `"Yes"`, they want a boolean. But my agents were outputting `"Yes"`, `"true"`, `"1"`, `"compliant"`, all kinds of stuff. So in `fill_pdf_form` I added a coercion: `str(value).lower() in ['true', '1', 'yes', 'compliant', 'checked']`. Now whatever the agent decides to call "true" gets normalized into an actual bool before the widget update.
+
+**Problem 10: Old outputs polluting new runs.**
+Early on I wasn't deleting old filled PDFs or old mapping files. A user would generate a mapping, then upload a different form, and the API would happily return them the old mapping because the file still existed. The fix was the explicit cleanup loops you can see in `/api/mapping/generate`, deleting everything in mapping_uploads and mapping_outputs before writing the new files, and the same pattern in `fill_pdf_form` deleting old PDFs in outputs. Small thing, big difference in reliability.
+
+**Problem 11: The mapping generator's builder agent would forget to call its save tool.**
+The builder agent would describe the mapping perfectly in its chat output and then never actually call `save_mapping_tool`. So the workflow would "complete" and there'd be no file on disk. I added two defenses. First, the prompt is very explicit, "**CRITICAL - Save the mapping**" with the exact arg names. Second, after the team runs, I check `if not os.path.exists(output_path)` and write a fallback error mapping so the API at least returns something structured instead of a 500. That was a hard-won lesson: never assume an agent actually did the side-effect, always verify on the file system.
+
+**Problem 12: SSE sessions that nobody connected to leaking memory.**
+Every workflow created entries in `session_logs` and `workflow_results` and nothing cleaned them up. Over a long demo day this grows. I haven't fully fixed this one, honestly, it's still on the todo list. The right fix is a TTL or a max-N LRU eviction. Right now I rely on restarts. I'd mention this in the interview as a "known limitation, here's how I'd fix it."
+
+## 7. Tech stack summary
+
+- **FastAPI** for the HTTP layer, async endpoints, dependency injection for the API key
+- **Uvicorn** as the ASGI server
+- **sse-starlette** for the Server-Sent Events stream so the front end can show live agent logs
+- **autogen-agentchat 0.7.4** for defining agents and the `RoundRobinGroupChat` team pattern
+- **autogen-ext[openai,azure]** for the `AzureOpenAIChatCompletionClient`
+- **Azure OpenAI** as the actual LLM behind every agent
+- **PyPDF2** for reading and validating that the PDF has fillable form fields
+- **PyMuPDF (fitz)** for actually writing values into PDF widgets, it handles checkboxes and combos better than PyPDF2
+- **httpx** for the agent's API calls (async client, plays nice with FastAPI)
+- **sqlite3** stdlib for the internal HR and finance databases
+- **python-dotenv** for loading Azure credentials from .env
+- **jsonpath-ng** for navigating nested JSON when extracting from API responses
+- **pdfplumber** as a backup reader available if PyPDF2 misses text
+- **Pydantic** for request/response models
+
+## 8. Key lessons I'd pass on to another beginner
+
+- Give every agent exactly one job and exactly the tools for that job. Multi-purpose agents are where reliability goes to die.
+- Assume the model will skip your tool call. Add explicit "you MUST call the tool" lines, give a concrete example, and verify the side-effect happened.
+- Use a round-robin team for linear workflows. Don't pay an LLM to pick who speaks next when a `for` loop will do it for free.
+- Always set a termination condition. Both a TextMention one for graceful early exits and a MaxMessages one as a safety net.
+- Fail fast in the tool, not in the agent. If the PDF is invalid, return an error from the tool and let the agent translate that to a TERMINATE signal.
+- For anything that runs longer than a few seconds, kick it off as a background task and stream progress over SSE. Users tolerate slow if they can see something happening.
+- Mind your import order with .env files. Load environment variables before importing modules that read them at import time.
+- Use stable IDs like `field_1`, `field_2` between agents, not human-readable names. Names drift, IDs don't.
+- Clean up old artifacts before writing new ones, or you'll spend a debugging session staring at yesterday's output.
+- Pin your AI framework versions. AutoGen and friends are moving fast and minor bumps can break your prompts and your APIs.
+- If the data lives in many places, build a mapping layer between the form and the sources. The mapping is the secret sauce, the code on top of it is almost generic.
+
+That's the honest version of the project. Happy to dig deeper into any of those sections if you want to push on something.

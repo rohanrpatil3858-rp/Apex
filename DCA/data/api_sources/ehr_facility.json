@@ -1,0 +1,64 @@
+{
+  "facilities": [
+    {
+      "facility_id": "FAC-001",
+      "name": "Metro Medical Center",
+      "cms_number": "123456",
+      "npi": "1234567890",
+      "type": "Hospital",
+      "address": {
+        "street": "123 Healthcare Blvd",
+        "city": "New York",
+        "state": "NY",
+        "zip": "10001"
+      },
+      "contact": {
+        "phone": "(212) 555-0100",
+        "email": "admin@metromedical.com"
+      },
+      "capacity": {
+        "total_beds": 250
+      }
+    },
+    {
+      "facility_id": "FAC-002",
+      "name": "Sunrise Hospice Care",
+      "cms_number": "654321",
+      "npi": "2234567890",
+      "type": "Hospice",
+      "address": {
+        "street": "456 Serenity Lane",
+        "city": "Boston",
+        "state": "MA",
+        "zip": "02108"
+      },
+      "contact": {
+        "phone": "(617) 555-0200",
+        "email": "info@sunrisehospice.com"
+      },
+      "capacity": {
+        "total_beds": 40
+      }
+    },
+    {
+      "facility_id": "FAC-003",
+      "name": "Evergreen Provider Group",
+      "cms_number": "789012",
+      "npi": "3234567890",
+      "type": "Provider Group",
+      "address": {
+        "street": "789 Evergreen Drive",
+        "city": "Chicago",
+        "state": "IL",
+        "zip": "60601"
+      },
+      "contact": {
+        "phone": "(312) 555-0300",
+        "email": "office@evergreenproviders.com"
+      },
+      "capacity": {
+        "total_beds": 75
+      }
+    }
+  ]
+}

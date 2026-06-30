@@ -1,0 +1,126 @@
+{
+  "form_id": "CMS-XXXX",
+  "form_name": "CMS Facility Compliance and Audit Report",
+  "version": "1.0",
+  "total_fields": 14,
+  "api_mappings": [
+    {
+      "field_id": "1",
+      "field_name": "Facility Name",
+      "api_endpoint": "http://localhost:8000/api/ehr/facility",
+      "required": true,
+      "description": "Name of the facility.",
+      "data_location": "Find the facility matching the user-provided facility name and ID, then extract the name field."
+    },
+    {
+      "field_id": "2",
+      "field_name": "CMS Certification Number (CCN)",
+      "api_endpoint": "http://localhost:8000/api/registry/state",
+      "required": true,
+      "description": "Unique certification number for the facility.",
+      "data_location": "Find the facility matching the user-provided facility name and ID, then extract the certification_number field from the licenses object."
+    },
+    {
+      "field_id": "3",
+      "field_name": "Street Address",
+      "api_endpoint": "http://localhost:8000/api/ehr/facility",
+      "required": true,
+      "description": "Street address of the facility.",
+      "data_location": "Find the facility matching the user-provided facility name and ID, then extract the street field from the address object."
+    },
+    {
+      "field_id": "4",
+      "field_name": "City, State, Zip",
+      "api_endpoint": "http://localhost:8000/api/ehr/facility",
+      "required": true,
+      "description": "Combined city, state, and zip code of the facility address.",
+      "data_location": "Find the facility matching the user-provided facility name and ID, then extract city, state, and zip from the address object, combining them in the format: {city}, {state}, {zip}."
+    },
+    {
+      "field_id": "5",
+      "field_name": "NPI",
+      "api_endpoint": "http://localhost:8000/api/ehr/facility",
+      "required": true,
+      "description": "National Provider Identifier for the facility.",
+      "data_location": "Find the facility matching the user-provided facility name and ID, then extract the npi field."
+    },
+    {
+      "field_id": "6",
+      "field_name": "Administrator Email",
+      "api_endpoint": "http://localhost:8000/api/ehr/facility",
+      "required": true,
+      "description": "Email address of the facility's administrator.",
+      "data_location": "Find the facility matching the user-provided facility name and ID, then extract the email field from the contact object."
+    },
+    {
+      "field_id": "7",
+      "field_name": "Telephone No.",
+      "api_endpoint": "http://localhost:8000/api/ehr/facility",
+      "required": true,
+      "description": "Contact telephone number of the facility.",
+      "data_location": "Find the facility matching the user-provided facility name and ID, then extract the phone field from the contact object."
+    },
+    {
+      "field_id": "8",
+      "field_name": "Audit Date (MM/DD/YYYY)",
+      "api_endpoint": "http://localhost:8000/api/compliance/audit",
+      "required": true,
+      "description": "Date of the compliance audit.",
+      "data_location": "Find the audit record for the matching facility and extract the audit_date field, converting it into MM/DD/YYYY format if necessary."
+    },
+    {
+      "field_id": "9",
+      "field_name": "Auditor Name",
+      "api_endpoint": "http://localhost:8000/api/hr/auditor",
+      "required": true,
+      "description": "Name of the auditor conducting the compliance assessment.",
+      "data_location": "Find the auditor associated with the matching facility and extract the full_name field."
+    },
+    {
+      "field_id": "10",
+      "field_name": "Total Beds",
+      "api_endpoint": "http://localhost:8000/api/ehr/facility",
+      "required": true,
+      "description": "Total number of beds in the facility.",
+      "data_location": "Find the facility matching the user-provided facility name and ID, then extract the total_beds field from the capacity object."
+    },
+    {
+      "field_id": "11",
+      "field_name": "Compliance Status (Check)",
+      "api_endpoint": "http://localhost:8000/api/compliance/audit",
+      "required": true,
+      "description": "Compliance status of the facility.",
+      "data_location": "Find the audit record for the matching facility and extract the compliance_status field. Mark it as checked for 'Compliant' status."
+    },
+    {
+      "field_id": "12",
+      "field_name": "Comments",
+      "api_endpoint": "http://localhost:8000/api/compliance/audit",
+      "required": false,
+      "description": "General comments provided during the audit.",
+      "data_location": "Find the audit record for the matching facility and extract the comments field if available."
+    }
+  ],
+  "database_mappings": [
+    {
+      "field_id": "13",
+      "field_name": "Signature - Administrator/Medical Director",
+      "source_file": "internal_hr.sqlite",
+      "table": "employees",
+      "description": "Administrator or Medical Director authorized to sign forms.",
+      "facility_specific": true,
+      "requirements": "Employee whose can_sign_3427 is set to 1 and matches the provided facility ID.",
+      "required": true
+    },
+    {
+      "field_id": "14",
+      "field_name": "Signature Date",
+      "source_file": "N/A",
+      "table": "N/A",
+      "description": "Date of form signature, dynamically added at the time of form completion.",
+      "facility_specific": false,
+      "requirements": "Use the current date dynamically.",
+      "required": true
+    }
+  ]
+}

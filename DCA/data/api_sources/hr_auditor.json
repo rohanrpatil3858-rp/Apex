@@ -1,0 +1,47 @@
+{
+  "auditors": [
+    {
+      "auditor_id": "AUD-001",
+      "first_name": "Sarah",
+      "last_name": "Smith",
+      "full_name": "Dr. Sarah Smith",
+      "title": "Senior Compliance Officer",
+      "department": "Quality Assurance",
+      "email": "sarah.smith@metromedical.com",
+      "phone": "(212) 555-1101",
+      "facility_id": "FAC-001"
+    },
+    {
+      "auditor_id": "AUD-002",
+      "first_name": "John",
+      "last_name": "Davis",
+      "full_name": "John Davis",
+      "title": "Clinical Auditor",
+      "department": "Compliance",
+      "email": "john.davis@sunrisehospice.com",
+      "phone": "(617) 555-2202",
+      "facility_id": "FAC-002"
+    },
+    {
+      "auditor_id": "AUD-003",
+      "first_name": "Maria",
+      "last_name": "Garcia",
+      "full_name": "Maria Garcia",
+      "title": "Finance Manager",
+      "department": "Finance",
+      "email": "maria.garcia@evergreenproviders.com",
+      "phone": "(312) 555-3303",
+      "facility_id": "FAC-003"
+    }
+  ],
+  "contacts": [
+    {
+      "contact_id": "CON-001",
+      "name": "Emily Brown",
+      "title": "Billing Contact",
+      "phone": "(312) 555-3304",
+      "email": "billing@evergreenproviders.com",
+      "facility_id": "FAC-003"
+    }
+  ]
+}

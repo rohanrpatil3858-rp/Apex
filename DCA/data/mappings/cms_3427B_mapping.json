@@ -1,0 +1,122 @@
+{
+  "form_id": "CMS-3427_B",
+  "form_name": "Medicare Compliance Report (Sunrise Healthcare)",
+  "version": "1.0",
+  "total_fields": 13,
+  
+  "api_mappings": [
+    {
+      "field_id": "1",
+      "field_name": "Facility Name",
+      "api_endpoint": "http://127.0.0.1:8000/api/ehr/facility",
+      "json_path": "$.facilities[1].name",
+      "required": true,
+      "description": "Name of the healthcare facility"
+    },
+    {
+      "field_id": "2",
+      "field_name": "CMS Certification Number (CCN)",
+      "api_endpoint": "http://127.0.0.1:8000/api/registry/state",
+      "json_path": "$.licenses[1].certification_number",
+      "required": true,
+      "description": "6-digit CMS certification number"
+    },
+    {
+      "field_id": "3",
+      "field_name": "Street Address",
+      "api_endpoint": "http://127.0.0.1:8000/api/ehr/facility",
+      "json_path": "$.facilities[1].address.street",
+      "required": true,
+      "description": "Facility street address"
+    },
+    {
+      "field_id": "4",
+      "field_name": "City, State, Zip",
+      "api_endpoint": "http://127.0.0.1:8000/api/ehr/facility",
+      "json_path": "$.facilities[1].address",
+      "required": true,
+      "description": "Combine city, state, zip",
+      "transform": "combine",
+      "fields_to_combine": ["city", "state", "zip"],
+      "format": "{city}, {state} {zip}"
+    },
+    {
+      "field_id": "5",
+      "field_name": "NPI",
+      "api_endpoint": "http://127.0.0.1:8000/api/ehr/facility",
+      "json_path": "$.facilities[1].npi",
+      "required": true,
+      "description": "National Provider Identifier"
+    },
+    {
+      "field_id": "6",
+      "field_name": "Administrator Email",
+      "api_endpoint": "http://127.0.0.1:8000/api/ehr/facility",
+      "json_path": "$.facilities[1].contact.email",
+      "required": true,
+      "description": "Facility administrator email"
+    },
+    {
+      "field_id": "7",
+      "field_name": "Telephone No.",
+      "api_endpoint": "http://127.0.0.1:8000/api/ehr/facility",
+      "json_path": "$.facilities[1].contact.phone",
+      "required": true,
+      "description": "Facility contact phone"
+    },
+    {
+      "field_id": "8",
+      "field_name": "Audit Date (MM/DD/YYYY)",
+      "api_endpoint": "http://127.0.0.1:8000/api/compliance/audit",
+      "json_path": "$.audits[1].audit_date",
+      "required": true,
+      "description": "Date of compliance audit"
+    },
+    {
+      "field_id": "10",
+      "field_name": "Total Beds",
+      "api_endpoint": "http://127.0.0.1:8000/api/ehr/facility",
+      "json_path": "$.facilities[1].capacity.total_beds",
+      "required": true,
+      "description": "Total licensed beds"
+    },
+    {
+      "field_id": "11",
+      "field_name": "Compliance Status (Check)",
+      "api_endpoint": "http://127.0.0.1:8000/api/compliance/audit",
+      "json_path": "$.audits[1].compliance_status",
+      "required": true,
+      "description": "Compliance status checkbox"
+    }
+  ],
+  
+  "database_mappings": [
+    {
+      "field_id": "9",
+      "field_name": "Auditor Name",
+      "source_file": "internal_hr.sqlite",
+      "table": "employees",
+      "sql_query": "SELECT full_name FROM employees WHERE employee_id = 2 AND can_sign_3427 = 1",
+      "required": true,
+      "description": "Name of auditor conducting survey"
+    },
+    {
+      "field_id": "12",
+      "field_name": "Comments",
+      "source_file": "internal_hr.sqlite",
+      "table": "employees",
+      "sql_query": "SELECT 'No significant deficiencies found. Facility maintains compliance with all Medicare standards.' AS comments",
+      "required": false,
+      "description": "Auditor comments"
+    },
+    {
+      "field_id": "13",
+      "field_name": "Signature - Administrator/Medical Director",
+      "source_file": "internal_hr.sqlite",
+      "table": "employees",
+      "sql_query": "SELECT full_name FROM employees WHERE employee_id = 2 AND can_sign_3427 = 1",
+      "required": true,
+      "description": "Administrator signature"
+    }
+  ]
+}

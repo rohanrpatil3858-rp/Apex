@@ -1,0 +1,165 @@
+{
+  "form_id": "CMS-643",
+  "form_name": "Hospice Survey and Deficiencies Report",
+  "version": "1.0",
+  "total_fields": 17,
+  
+  "api_mappings": [
+    {
+      "field_id": "1",
+      "field_name": "Certification Number",
+      "api_endpoint": "http://127.0.0.1:8000/api/registry/state",
+      "json_path": "$.licenses[1].certification_number",
+      "required": true,
+      "description": "CMS certification number for hospice"
+    },
+    {
+      "field_id": "2",
+      "field_name": "Name of Facility",
+      "api_endpoint": "http://127.0.0.1:8000/api/ehr/facility",
+      "json_path": "$.facilities[1].name",
+      "required": true,
+      "description": "Hospice facility name"
+    },
+    {
+      "field_id": "3",
+      "field_name": "Survey Date",
+      "api_endpoint": "http://127.0.0.1:8000/api/compliance/audit",
+      "json_path": "$.audits[1].audit_date",
+      "required": true,
+      "description": "Date of hospice survey"
+    },
+    {
+      "field_id": "4",
+      "field_name": "Was this hospice surveyed for compliance with 42 CFR 418.110?",
+      "api_ednpoint": "http://127.0.0.1:8000/api/compliance/audit",
+      "json_path": "$.audits[1].status",
+      "required": true,
+      "description": "Compliance survey conducted",
+      "transform": "boolean",
+      "value_mapping": {
+        "Completed": "Yes",
+        "Pending": "No"
+      }
+    },
+    {
+      "field_id": "5",
+      "field_name": "If this hospice provides inpatient care directly, is the inpatient care provided on the premises?",
+      "api_endpoint": "http://127.0.0.1:8000/api/ehr/facility",
+      "json_path": "$.facilities[1].type",
+      "required": false,
+      "description": "Inpatient care on premises",
+      "default_value": "Yes"
+    },
+    {
+      "field_id": "6",
+      "field_name": "Has a waiver of core nursing services been granted?",
+      "api_endpoint": "http://127.0.0.1:8000/api/compliance/audit",
+      "json_path": "$.audits[1].compliance_status",
+      "required": false,
+      "description": "Waiver granted status",
+      "default_value": "No"
+    },
+    {
+      "field_id": "7",
+      "field_name": "If Yes indicate date",
+      "api_endpoint": "http://127.0.0.1:8000/api/compliance/audit",
+      "json_path": "$.audits[1].audit_date",
+      "required": false,
+      "description": "Waiver date if applicable"
+    },
+    {
+      "field_id": "8",
+      "field_name": "Indicate type of setting(s) in which the hospice provides routine home care",
+      "api_endpoint": "http://127.0.0.1:8000/api/compliance/audit",
+      "json_path": "$.audits[1].audit_type",
+      "required": true,
+      "description": "Care settings",
+      "default_value": "Private residence, SNF, NF"
+    }
+  ],
+  
+  "database_mappings": [
+    {
+      "field_id": "9",
+      "field_name": "Number of hospice patients residing in a SNF, NF or other residential facility who receive routine home care",
+      "source_file": "internal_hr.sqlite",
+      "table": "hospice_metrics",
+      "sql_query": "SELECT patients_in_snf_nf FROM hospice_metrics WHERE facility_id = 'FAC-002'",
+      "required": true,
+      "description": "Patient count in residential facilities"
+    },
+    {
+      "field_id": "10",
+      "field_name": "Number of hospice patients admitted during recent 12 month period",
+      "source_file": "internal_hr.sqlite",
+      "table": "hospice_metrics",
+      "sql_query": "SELECT patients_admitted_12m FROM hospice_metrics WHERE facility_id = 'FAC-002'",
+      "required": true,
+      "description": "12-month admission count"
+    },
+    {
+      "field_id": "11",
+      "field_name": "Number of records reviewed during survey",
+      "source_file": "internal_hr.sqlite",
+      "table": "hospice_metrics",
+      "sql_query": "SELECT records_reviewed FROM hospice_metrics WHERE facility_id = 'FAC-002'",
+      "required": true,
+      "description": "Records reviewed count"
+    },
+    {
+      "field_id": "12",
+      "field_name": "Number of home visits conducted to patients in a private residence",
+      "source_file": "internal_hr.sqlite",
+      "table": "hospice_metrics",
+      "sql_query": "SELECT home_visits_private FROM hospice_metrics WHERE facility_id = 'FAC-002'",
+      "required": true,
+      "description": "Private residence visits"
+    },
+    {
+      "field_id": "13",
+      "field_name": "Number of home visits conducted to patients in residential facilities",
+      "source_file": "internal_hr.sqlite",
+      "table": "hospice_metrics",
+      "sql_query": "SELECT home_visits_residential FROM hospice_metrics WHERE facility_id = 'FAC-002'",
+      "required": true,
+      "description": "Residential facility visits"
+    },
+    {
+      "field_id": "14",
+      "field_name": "Does this hospice operate under the same certification number at more than one location?",
+      "source_file": "internal_hr.sqlite",
+      "table": "employees",
+      "sql_query": "SELECT 'No' AS multiple_locations",
+      "required": false,
+      "description": "Multiple location status"
+    },
+    {
+      "field_id": "15",
+      "field_name": "Does this hospice operate as part of another entity that participates in the Medicare program?",
+      "source_file": "internal_hr.sqlite",
+      "table": "employees",
+      "sql_query": "SELECT 'No' AS part_of_entity",
+      "required": false,
+      "description": "Part of another entity"
+    },
+    {
+      "field_id": "16",
+      "field_name": "Surveyor Signature",
+      "source_file": "internal_hr.sqlite",
+      "table": "employees",
+      "sql_query": "SELECT full_name FROM employees WHERE employee_id = 2 AND can_sign_643 = 1",
+      "required": true,
+      "description": "Surveyor signature"
+    },
+    {
+      "field_id": "17",
+      "field_name": "Title",
+      "source_file": "internal_hr.sqlite",
+      "table": "employees",
+      "sql_query": "SELECT title FROM employees WHERE employee_id = 2 AND can_sign_643 = 1",
+      "required": true,
+      "description": "Surveyor title"
+    }
+  ]
+}

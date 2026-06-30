@@ -1,0 +1,37 @@
+{
+  "licenses": [
+    {
+      "license_id": "LIC-001",
+      "facility_id": "FAC-001",
+      "license_number": "LIC-NY-2025-001",
+      "license_type": "Hospital Operating License",
+      "certification_number": "123456",
+      "issuing_authority": "New York State Department of Health",
+      "issue_date": "2025-01-01",
+      "expiry_date": "2026-12-31",
+      "status": "Active"
+    },
+    {
+      "license_id": "LIC-002",
+      "facility_id": "FAC-002",
+      "license_number": "LIC-MA-2025-002",
+      "license_type": "Hospice License",
+      "certification_number": "654321",
+      "issuing_authority": "Massachusetts Department of Public Health",
+      "issue_date": "2025-02-15",
+      "expiry_date": "2026-02-14",
+      "status": "Active"
+    },
+    {
+      "license_id": "LIC-003",
+      "facility_id": "FAC-003",
+      "license_number": "LIC-IL-2025-003",
+      "license_type": "Group Practice License",
+      "certification_number": "789012",
+      "issuing_authority": "Illinois Department of Public Health",
+      "issue_date": "2025-03-01",
+      "expiry_date": "2026-02-28",
+      "status": "Active"
+    }
+  ]
+}
